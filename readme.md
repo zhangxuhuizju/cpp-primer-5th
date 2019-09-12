@@ -233,3 +233,68 @@ constexpr int limit = mf + 1;
 //only correct when size() is a constexpr function
 constexpr int sz = size();
 ```
+constexpr类型的指针必须是nullptr或者是0，或者是某个固定地址中的对象
+
+在constexpr声明中定义了指针，constexpr只对指针有效，与所指对象无关
+```C++
+const int *p = nullptr;  //p is a pointer point to a const integer
+constexpr int *q = nullptr; //q is a const pointer point to a integer
+```
+### 类型别名
+两种方法定义类型别名
++ typedef
++ C11规定的别名声明
+```C++
+typedef double wages; //wages is the synonym of double
+typedef wages base, *p; //base is the synonym of double, *p of double*
+
+using SI = Sales_item; //the same as typedef
+```
+**指针、常量和类型别名**
+```C++
+typedef char *ptr;
+const ptr cstr = 0; //cstr is a const pointer point to char
+//ps is a pointer, point to a const pointer, which point to char
+const ptr *ps;
+
+const char *cstr = 0; //cstr is a pointer point to const char
+```
+注意typedef后的区别，不能简单用替换前的部分改写声明来进行类型判断
+
+**auto**：使用较为简单，其中需要注意的一点是auto一般会忽略顶层const，保留底层const
+```C++
+const int ci = i, &cr = ci;
+auto b = ci; //b is a int, ignore the top-level const of ci
+auto c = cr; //cr is a int
+auto d = &i; //d is a int poniter
+//e is a pointer point to const int, cannot ignore the buttom-level const 
+auto e = &ci; 
+
+//if we want to get a top-level const, we can write as:
+const auto f = ci;
+
+auto &g = ci;
+auto &h = 42; //error! h is not a const reference!
+const auto &j = 42;
+
+auto &n = i, *p = &ci; //error! i is a int but ci is a const int.
+```
+**decltype**:与auto不同在于，会把顶层const也包含在内
+```C++
+const int ci = 0, &cj = ci;
+decltype(ci) x = 0;  //x is a const int
+decltype(ci) y = x; //y is a const int
+decltype(ci) z; //error! z is a reference, must be initialized!
+```
+一般而言，引用都是作为其指向对象的同义词，但是decltype是个例外。如：
+```C++
+int i = 0, *p = &i;
+decltype(*p) c; //error! c is a int &, must be initialized!
+
+decltype((i)) d; //error! d is int &
+decltype(i) e; //e is int
+```
+*p是解引用操作，得到指针指向的对象，则decltype判断该表达式是引用    
+此外，在变量外加一层括号，编译器会将其作为表达式，此时decltype将其解析为引用！！！
+
+
