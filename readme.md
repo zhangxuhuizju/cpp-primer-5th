@@ -387,3 +387,135 @@ vector<int>::size_type; //correct
 vector::size_type; //error!
 ```
 
+#### 迭代器介绍
+一般容器都有begin和end的成员，begin指向第一个元素，end指向尾元素的下一个元素。当容器为空的时候，两者返回的都是尾后迭代器。
+
+迭代器的用法和指针类似，有* / -> / ++ / -- / == / != 等操作。    
+例子：将string的第一个字母变成大写
+```C++
+string s("some string");
+if (s.begin() != s.end()) { //确保s非空
+    auto it = s.begin();
+    *it = toupper(*it);
+}
+```
+
+**tips**：C++的for循环尽量用!=，因为C++的容器迭代器基本都定义了 == 和 != 而不一定有 > <等操作
+
+**迭代器类型**
+```C++
+vector<int>::iterator it;
+string::iterator it2; //it and it2 can read and write
+
+vector<int>::const_iterator it3;
+string::const_iterator it4;  //it3 and it4 are read only
+```
+如果容器是个常量对象，那么只能用const_iterator, 否则两者都可以使用
+
+如果对容器的操作过程中只需要读不要写，那么尽量用const_iterator。C++11标准引入了cbegin()和cend()，用来返回const_iterator
+
+凡是使用了迭代器的循环体，都不要向迭代器所属的容器添加元素，以免迭代器失效。
+
+指向同一个容器的两个迭代器可以进行 - 操作，其返回的结果类型为**difference_type**的带符号整形数
+
+#### 数组
+编译的时候必须知道数组的维度，即维度必须是一个常量表达式
+```C++
+unsigned cnt = 42;  //not a constexpr
+constexpr unsigned sz = 42;  //constexpr
+int arr[10]; //an array contains 10 integers
+int *parr[sz]; //an array contains 42 pointers point to int
+string bad[cnt]; //error! cnt is not a constexpr
+string strs[get_size()]; //correct only get_size return a constexpr
+```
+
+**字符数组的特殊性**
+可以用字符串的字面值对字符数组进行初始化，此时需要注意字符串字面值的结尾有一个空字符('\0')
+```C++
+char a1[] = {'C', '+', '+'};  //a1 has 3 chars
+char a2[] = {'C', '+', '+', '\0'}; //a2 has 4 chars
+char a3[] = "C++"; // the same as a2
+const char a4[3] = "C++";  //error! a4 can only contain 3 chars
+```
+数组不允许拷贝和赋值，这一点与容器不同！引用类型不存在数组，因为数组的元素必须为对象。
+
+**一些复杂的数组声明**
+```C++
+//ptrs is an array contains 10 pointers point to integer
+int *ptrs[10]; 
+int &refs[10] = /*?*/;  //error! reference array is not exist!
+//Parray is a pointer point to an array contains 10 intergers
+int (*Parray)[10] = &arr;
+//arrRef is a reference refer to an array contains 10 integers 
+int (&arrRef)[10] = arr;
+//arry is a reference refer to an array contains 10 pointer point to int
+int *(&arry)[10] = ptrs;
+```
+对于数组的声明，从其名字开始由内向外进行阅读即可。
+
+#### 指针和数组
+一般而言数组名就是指向数组第一个元素的指针，其中对数组名用auto和decltype的时候也有不同，具体如下：
+```C++
+int ia[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+auto ia2(ia); //ia2 is a pointer point to the first element in ia
+ia2 = 42; //error!!!
+
+decltype(ia) ia3 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}; //ia3 is an array contains 10 integers
+```
+对于数组的首尾指针，C++11用了begin(array_name)和end(array_name)两个函数来定义
+
+指针相减的结果返回**ptrdiff_t**类型
+
+与容器不同，数组的下标允许是负数，如：
+```C++
+int ia[] = {0, 2, 4, 6, 8};
+int *p = &ia[2];
+int j = p[1]; //j == ia[3] == 6
+int k = p[-2]; //k == ia[0] == 0
+```
+
+#### 与C风格字符串的接口
+C++为了兼容C风格字符串，允许在任何出现字符串字面值的地方都可以用以空字符结束的字符数组来替代。但反之不成立：
+```C++
+string s = "hello";
+char *str = s; //error!
+const char *str = s.c_str(); //correct!
+```
+c_str函数返回一个C风格的字符串，即一个指针，指向以空字符结束的字符接口
+
+**使用数组初始化vector对象**
+不允许用一个数组为另一个内置类型的数组赋初值，也不允许用vector对象初始化数组，但是允许用数组初始化vector对象
+```C++
+int int_arr[] = {0, 1, 2, 3, 4, 5};
+//vector有6个元素，分别是int_arr数组中对应元素的副本
+vector<int> ivec(begin(int_arr), end(int_arr));
+//vector中含有三个元素，分别是1 2 3
+vector<int> ivec(int_arr + 1, int_arr + 4);
+```
+
+#### 多维数组
+C++严格意义上没有多维数组，通常所说的多维数组其实是数组的数组
+**多维数组的初始化**
+```C++
+//两个初始化效果一致
+int ia[3][4] = {
+    {0, 1, 2, 3},
+    {4, 5, 6, 7},
+    {8, 9 ,10 , 11}
+};
+int ia[3][4] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+
+//仅初始化每行的第一个元素
+int ia[3][4] = {{0}, {4}, {8}};
+
+//显式地初始化第一行，其余元素未初始化
+int ia[3][4] = {0, 3, 6, 9};
+```
+对于多维数组，用范围for循环的时候，所有层都应该是引用类型，否则会出错。因为对于外层的auto类型判别其为指针，再对其进行auto不能得到想要的结果。
+
+**类型别名简化多维数组的指针**
+```C++
+using int_array = int[4];
+typedef int int_array[4];
+```
+上述两个语句都是给一个4个int的数组定义了一个int_array的别名
