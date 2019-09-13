@@ -297,4 +297,93 @@ decltype(i) e; //e is int
 *p是解引用操作，得到指针指向的对象，则decltype判断该表达式是引用    
 此外，在变量外加一层括号，编译器会将其作为表达式，此时decltype将其解析为引用！！！
 
+## Chapter3
+### 命名空间using声明
+using声明格式：
+```C++
+using namespace::name;
+```
+需要注意的是，头文件不应该包含using声明，因为头文件内容会拷贝到所有引用他们的文件中，则这些文件都会using声明，可能会产生冲突
+
+### 标准库string
+||string对象初始化的方式|
+-|-
+string s1 | 默认初始化，s1为空
+string s2(s1) | s2是s1的副本
+string s2 = s1 | 等价于string s2(s1)
+string s3("value") | s3是字面值为“value”的副本
+string s3 = “value" | 等价于string s3("value")
+string s4(n, 'c') | s4初始化为n个字符c组成的串
+
+#### 直接初始化和拷贝初始    
+使用 = 进行的是拷贝初始化，否则是直接初始化
+
+cin读入的string会忽略空白格，从真正的字符开始读到下一个空白处为止
+
+读取一行用getline(istrem, s),遇到换行符为界。如果一开始就是换行符则读取的是空串
+
+#### 字面值和string对象相加    
+字面值可以和string对象进行 + 操作，因为标准库允许把字符字面值和字符串字面值转化成string对象。但是进行 + 操作时，必须保证每个 + 号的两侧至少有一个string对象
+```C++
+string s1 = "hello", s2 = "world";
+string s3 = s1 + ", " + s2 + '\n'; //s3 == "hello, world"
+
+string s4 = s1 + ", "; //add a string object with a string value
+string s5 = "hello" + ", "; //error! no string object!
+
+string s6 = s1 + " ," + "world";
+string s7 = "hello" + ", " + s2; //error! the first + add two string values!
+```
+**Attention**：C++中的字符串字面值不是string对象！！！
+
+#### 处理string对象的字符
+cctype头文件中定义了一系列标准库函数用于判别，具体查阅相关API
+
+**tips**： C++兼顾了C中的标准库，并且将C中的头文件如name.h命名为cname。两者的内容是一样的，但是写C++的时候建议用C++的标准写法，即用cname，保证命名空间std里面可以找到库中的名字。
+
+```C++
+//an example to use range for to handle string
+string s("Hello World!!!");
+/*the type of s.size() is string::size_type, we cannot sure which type it is. But it must be an unsigned type. */
+decltype(s.size()) punct_cnt = 0;
+for (auto c : s) {
+    if (ispunct(c))
+        punct_cnt++;
+}
+cout << punct_cnt << " punctuation characters in "
+     << s << endl;
+```
+如果需要改变字符串中的字符，可以用for(auto &c : s)来进行处理，这时的c是引用
+
+### 标准库vector
+vector是模板而非类型，vector生成的类型必须包含vector中元素的类型，如vector \<int\>
+
+####定义和初始化vector对象
+||vector对象初始化的方式|
+-|-
+vector<T> v1 | 默认初始化，v1为空
+vector<T> v2(v1) | v2是v1的副本，v1和v2的元素类型必须相同！
+vector<T> v2 = v1 | 等价于v2{v1}
+vector<T> v3(n, val) | v3有n个值为val的函数
+vector<T> v4(n) | v4有n个值为默认初始化值的对象
+vector<T> v5{a,b,c...} | v5包含初始化元素的个数，每个元素被赋予相应值
+vector<T> v6 = {a,b,c...} | 等价于v5{a,b,c...}
+
+对于vevotr的初始化，()一般用来提供构造vector对象的值，{}一般用来存放想要初始化的vector列表。但有一个例外，当{}存放的值无法用来初始化vector中元素的时候，编译器会试图用{}存放的内容来构造vector对象。例如：
+
+```C++
+vector<string> v1("hi"); //error
+vector<string> v2{"hi"};
+
+vector<string> v3{10}; //v3 contains 10 empty string
+vector<string> v4{10, "hi"}; //v3 contains 10 "hi"
+```
+
+vector中动态增加元素用push_back()函数。如果有动态增加，则不允许使用范围for循环
+
+vecotr中的size_type必须指明vector是哪种类型定义的
+```C++
+vector<int>::size_type; //correct
+vector::size_type; //error!
+```
 
