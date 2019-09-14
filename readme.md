@@ -519,3 +519,124 @@ using int_array = int[4];
 typedef int int_array[4];
 ```
 上述两个语句都是给一个4个int的数组定义了一个int_array的别名
+
+## chapter4
+### 基本概念
+**重载运算符**
+
+重载运算符的时候，运算对象的类型和返回值的类型都是由该运算符定义的，但是运算对象的个数、运算符的优先级和结合率无法改变
+
+**左值和右值**
+
+一个对象作为右值的时候，用的是对象的值/内容;作为左值的时候，用的是对象的身份(在内存中的位置)
+
+decltype对于左值和右值也有所不同。如果表达式求值结果是左值，那么decltype用于该表达式得到引用类型。
+```C++
+int i = 1;
+int *p = &i;  //p is a pointer
+decltype(*p) c = i;  //*p是对指针解引用，产生一个左值，因此c是int&类型
+decltype(&p) d = &p; //&p产生一个右值，因此d是int**类型
+```
+**求值顺序**
+
+优先级规定运算对象的组合方式，但是运算对象的求值顺序却是不定的。如`int i = f1() * f2()`中，f1和f2哪个先计算是不确定的
+
+对于未指定执行顺序的运算符，表达式指向并修改了同一个对象，将会引发错误并产生未定义的行为，如：
+```C++
+int i = 0;
+cout << i << " " << ++i << endl; //undefined
+```
+明确规定了求值顺序的运算符有逻辑与(&&),逻辑或(||),条件运算(?:),逗号运算(,)
+
+### 算数运算符
+\+ - 号有一元和二元两种含义，当一元\+ -号作用于一个指针或者算数值的时候，返回运算对象值的一个提升的副本
+```C++
+int i = 1024;
+int k = -i; //k = -1024
+bool b = true;
+bool b2 = -b; //b2 = true!
+```
+上式中，由于-true做了变量提升，提升为int型，则得到结果-1,-1返回true
+
+%运算规定必须是整形参与，其结果由(m/n)*n+m%n == m定义，即如果m不等于0,则结果的符号和m相同
+
+### 赋值运算符
+需要区分初始化和赋值是不同的两类操作
+
+C++11新标准允许花括号扩起来的初始值列表作为赋值语句的右值运算对象，但是这些运算对象的类型所占空间必须小于等于目标对象类型，例如
+```C++
+int k = 0;
+k = {3.14}; //error! double -> int 
+k = {true}; //correct! bool -> int
+vector<int> v;
+v = {1, 2, 3, 4, 5};
+```
+**复合求值运算符**：如+=等，与普通运算符的区别在于对于左侧运算对象求值次数用复合运算符只求一次
+
+### 递增递减运算符
+++&ensp;--运算符有前置和后置两个类型。一般而言优先选用前置版本，以免不必要的临时存储开销
+
+**运算对象可按任意顺序求值**
+
+举一个简单的例子：
+```C++
+while(beg != s.end() && !isspace(*beg))
+    *beg = toupper(*beg++);  //error! undefined!
+```
+上述语句会发生错误，因为运算对象处理顺序是可以任意的，编译器可能按照以下任意一种方式处理表达式：
+```C++
+*beg = toupper(*beg);  //先求左值
+*(beg+1) = toupper(*beg); //先求右值
+```
+### sizeof运算符
+两类形式：sizeof (type)和sizeof expr 
+
+举例如下：
+```C++
+Sales_data data, *p;
+sizeof(Sales_data);  //存储sales_data类型的对象所占空间的大小
+sizeof data;   //同上
+sizeof p;    //指针本身所占空间的大小
+sizeof *p;  //同sizeof(Sales_data);
+sizeof data.revenue;  //revenue成员的大小
+sizeof Sales_data::revenue;  //同上
+```
+sizeof运算符的一些性质：
++ 对char或者类型是char的表达式执行sizeof得到1
++ 对引用类型执行sizeof得到引用对象所占空间大小
++ 对指针执行sizeof获得指针本身所占空间大小
++ 对解引用指针执行sizeof获得指针指向的对象所占空间的大小，**指针不要求有效！！！** 因为sizeof运算符并不真正执行运算
++ 对数组进行sizeof获得整个数组所占空间的大小
++ 对string和vector对象执行sizeof返回该类型固定部分的大小，不计算对象中的元素占了多少空间
+
+利用上述性质，计算数组长度代码可以写为：
+```C++
+constexpr size_t sz = sizeof(array) / sizeof(*array);
+```
+### 逗号运算符
+逗号运算符按照从左往右的顺序依次求值，把左侧的值丢弃掉最后的结果是右侧的值。如果右侧运算结果是左值，那么最终的求值结果也是左值。
+
+### 显式强制类型转换
+有**static_case**，**const_cast** , **reinterpret_cast**, **dynamic_cast** 4类
+
+不含有底层const时，可以用static_case，const_cast用来改变底层const属性，reinterpret_cast为运算对象的位模式提供较低层次上的解释。举例如下：
+```C++
+int i, j;
+double slope = static_cast<double>(j) / i;
+
+void *p = &d;
+double *dp = static_cast<double>(p);
+
+const char *pc;
+char *p = const_cast(char*)(pc); //correct! 但是通过p写值是未定义的
+
+const char *cp;
+char *q = static_cast<char*>(cp); //error! static_cast无法去掉底层const属性
+static_cast<string><cp>; //正确，字符串字面值转化成string类型
+const_cast<string>(cp);  //错误，const_cast只能改变常量属性
+
+int *ip;
+char *pc = reinterpret_cast<char*>(ip);
+```
+运算符优先表，见书p.147
+
