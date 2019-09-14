@@ -2,10 +2,10 @@
 ## 前言 
 &ensp;最近重新开始看c++ primer这本书，写点笔记，也为了以后复习和找工作吧...
 
-## chapter1
+## chapter1 开始
 &ensp;第一章没啥好写的，就讲了c++的一些基础，快速浏览了一下
 
-## chapter2
+## chapter2 变量和基本类型
 
 ### <center>c++ 类型表</center>
 
@@ -297,7 +297,7 @@ decltype(i) e; //e is int
 *p是解引用操作，得到指针指向的对象，则decltype判断该表达式是引用    
 此外，在变量外加一层括号，编译器会将其作为表达式，此时decltype将其解析为引用！！！
 
-## Chapter3
+## Chapter3 字符串、向量和数组
 ### 命名空间using声明
 using声明格式：
 ```C++
@@ -520,7 +520,7 @@ typedef int int_array[4];
 ```
 上述两个语句都是给一个4个int的数组定义了一个int_array的别名
 
-## chapter4
+## chapter4 表达式
 ### 基本概念
 **重载运算符**
 
@@ -640,3 +640,95 @@ char *pc = reinterpret_cast<char*>(ip);
 ```
 运算符优先表，见书p.147
 
+## chapter5 语句
+本章内容很基础，几乎所有的高级程序设计语言都会涉及到。如for、while、if-else、switch等。因此就记几个比较容易忽视的点吧。
+
+### switch
+switch语句的case标签必须是整形表达式。
+
+switch内部的变量定义：C++不允许switch语句跨过变量的**初始化语句**直接跳转到该变量作用域的另一个位置。如果要在case后定义分支并初始化变量，应该把变量定义在块内。例如：
+```C++
+case true:
+    string file_name; //错误，控制流绕过一个隐式初始化变量
+    int ival = 0;  //错误：控制流绕过一个显式初始化变量
+    int jval; //正确，jval没有初始化
+    break;
+case false:
+    jval = next_num(); //正确。给jval赋值
+    if (file_name.empty())  //file_name在作用域内但没有初始化
+        //...
+
+//最好采用以下写法
+case true:
+    {
+        string file_name = get_file_name();
+    }
+    break;
+case false:
+    if (file_name.empty()) //error! file_name不在作用域之内
+```
+### while
+定义在while条件部分或者循环体内的变量每次迭代都经历从创建到销毁的过程
+
+### 范围for循环
+如果在循环过程中需要对序列中的元素执行写操作，那么循环变量必须声明成引用类型
+
+### goto语句
+goto语句和控制权转向的那条带标签的语句必须位于同一个函数之内
+
+### try语句块和异常处理
+C++中，异常处理包括：
++ throw表达式，用来引发(raise)异常
++ try语句块，后面跟一个或者多个catch，为异常处理代码
++ 一套异常类，用以在throw表达式和相关的catch子句之间传递异常的具体信息
+#### throw表达式
+```C++
+if(item1.isbn() != item2.isben())
+    throw runtime_error("Data must refer to same ISBN");
+```
+上面代码中，抛出异常后会终止当前的函数，并把控制权转移给能处理该异常的代码。初始化runtime_error的对象时，需要给它提供一个string对象或者是一个C风格的字符串，该字符串中有一些关于异常的辅助信息。
+
+#### try语句块
+try语句块后面跟多个catch语句块，当选中某个catch语句块后，执行对应的块。catch一旦完成，程序跳转到try语句块最后一个catch子句之后的那条语句继续执行！
+
+**attention**：try语句块中声明的变量在块外部不能访问，即便是catch子句内也不行！
+```C++
+while(cin >> item1 >> item2) {
+    try {
+        //执行之前throw表达式部分的if语句
+    } catch(runtime_error err) {
+        cout << err.what()
+             << "\nTry Again? Enter y or n" << endl;
+        char c;
+        cin >> c;
+        if (!cin || c == 'n')
+            break; //break the while loop
+    }
+}
+/*输出如下：
+Data must refer to same ISBN
+Try Again? Enter y or n
+*/
+```
+#### 标准异常
+C++标准库定义了一组类，用来报告异常，分别在4个头文件
++ exception头文件，定义最通用的异常类exception。只报告异常的发生，不提供任何额外信息
++ stdexcept头文件定义几种常用的异常类
++ new头文件定义了bad_alloc异常类型
++ type_info头文件定义了bad_cast异常类型
++ 对于exception，bad_alloc和bad_cast对象，只能默认初始化，不允许提供初始值
++ 其他异常则应该用string或者C风格的字符串初始化对象，不允许使用默认的初始化方式、
++ 异常定义了一个what的成员函数，没有任何参数，反馈一个const char*，提供关于异常的一些文本信息
+
+||\<stdexcept\>定义的异常类|
+-|-
+exception | 最常见的问题
+runtime_error | 运行时才能检测的错误
+range_error | 运行时错误：生成的结果超出了有意义的值范围
+overflow_error | 运行时错误：计算上溢
+underflow_error | 运行时错误：计算下溢
+logic_error | 程序逻辑错误
+domain_error | 逻辑错误：参数对应的结果值不存在
+invalid_error | 逻辑错误：无效参数
+length_error | 逻辑错误：试图创建一个超出该类型最大长度的对象
+out_of_range | 逻辑错误：使用一个超出有效范围的值
