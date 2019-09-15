@@ -732,3 +732,320 @@ domain_error | 逻辑错误：参数对应的结果值不存在
 invalid_error | 逻辑错误：无效参数
 length_error | 逻辑错误：试图创建一个超出该类型最大长度的对象
 out_of_range | 逻辑错误：使用一个超出有效范围的值
+
+## chapter6 函数
+函数的写法和使用部分与大多数的高级语言相似，不再赘述。需要注意的是C++里函数的返回类型不能是数组或者函数类型，但可以是指向数组或函数的指针。
+
+### 局部对象
++ 名字的作用域是程序文本的一部分，名字在其中可见
++ 对象的生命周期是程序执行过程中该对象存在的一段时间
+
+**自动对象**：只存在于块执行期间的对象，例如形参
+
+### 分离式编译
+例如，定义了头文件header.h，该头文件中定义的函数是现在func.cpp，然后主函数文件main.cpp调用了这一系列函数。由于头文件只是起到声明的作用，因此只需编译两个*.cpp文件并链接就可以。命令如下
+```shell
+g++ -c func.cpp
+g++ -c main.cpp
+#上述两条语句编译完成后生成fuc.o和main.o文件，接着链接
+g++ main.o func.o -o test
+#最终生成test可执行文件
+```
+### 参数传递
+形参是引用类型的时候，为引用传递，否则是值传递
+
+#### 传值参数
+该部分需要注意的是指针作为形参的时候，执行指针拷贝的时候，拷贝的是指针的值。例如：
+```C++
+void reset(int *p) {
+    *ip = 0;
+    ip = 0;
+}
+```
+上述reset函数中，*ip=0语句会改变原本实参指向对象的值，但是ip=0并不会影响原本实参。这是因为p和原本的实参是两个不同的指针，只不过指向的是同一个对象。
+
+一般来说，尽量使用引用，避免拷贝大量的对象。当不需要修改形参的值时，最好用常量引用。在参数前加个const
+
+#### const形参和实参
+实参初始化形参的过程中会忽略掉顶层const，尽管形式和用法上有差异。这一点需要注意，例如以下两个fcn函数编译器会认为是重复定义的：
+```C++
+void fcn(const int i) {/*fcn can read i, but cannot write to i */}
+void fcn(int i) {} //error! 重复定义fcn
+```
+注意在给引用形参传值的过程中，const类型不可以传给非const类型。而且类型必须保持一致。如果形参是const引用，那么必须传递一个常量。例如：
+```C++
+//define three functions
+void reset(int *ip);
+void reset(int &i);
+string::size_type find_char(const string &s, char c, string::size_type &occurs);
+
+int i = 0;
+const int ci = i;
+string::size_type ctr = 0;
+reset(&i); //call int* reset
+reset(&ci); //error! 不能用指向const int的指针初始化int*
+reset(i); //call &i reset
+reset(ci); //error!
+reset(42); //error! 普通引用无法绑定字面值
+reset(ctr); //error！ ctr是无符号类型，类型不匹配
+find_char("hello", 'o', ctr); //正确，find_char第一个形参是对常量的引用
+```
+对于函数的引用，尽量使用常量引用，减少错误的发生。因为const引用可以引用非const的对象，反之则不可
+
+#### 数组形参
+数组形参的三种写法：
+```C++
+void print(const int*);
+void print(const int[]);
+void print(const int[10]); //维度表示希望有多少个元素，实际不一定,不要这样写
+```
+上面三个函数传入的都是const int* 类型，调用print的时候，检查是否传入了const int*即可。
+
+数组也可以传入引用形参，如：
+```C++
+void print(int (&arr)[10]);
+void print(int &arr[10]); //错误，此时arr指的是引用的数组！！！
+```
+#### 可变形参的函数
+**initializer_list形参**：对于实参的数量未知但是类型都相同的情况下可以用initializer_list类型的形参，具体操作如下表：
+
+||initializer_list提供的操作|
+-|-
+initializer_list<T> lst; | 默认初始化，T类型元素的空列表
+initializer_list<T> lst{a, b, c...}; | lst元素数量和初始化一样多，列表中的元素是**const**类型
+lst2(lst)<br>lst2 = lst | 拷贝或赋值一个initializer_list对象不会拷贝列表中的元素，<br>原始列表和副本是共享元素的
+lst.size() | 列表中元素数量
+lst.begin() | lst首元素指针
+lst.end() | lst尾元素下一个位置的指针
+
+使用举例：
+```C++
+void error_msg(initializer_list<string> li) {
+    for (auto i = li.begin(); i != li.end(); ++i)
+        cout << *i << " ";
+    cout << endl;
+}
+
+//向initializer_list里面传递的参数序列用{}扩起来
+if (expected != actual)
+    error_msg({"functionX", expected, actual});
+else
+    error_msg({"functionX", "okay"});
+```
+#### 函数的返回值
+如果函数返回引用，那么该引用仅仅是它所引对象的一个别名。例如：
+```C++
+const string &shorterString(const string &s1, const string &s2) {
+    return s1.size() < s2.size() ? s1 : s2;
+}
+```
+上例中，形参和返回类型都是const string的引用，不管是调用还是返回都不拷贝string对象
+
+**attention**：不要返回局部对象的引用或指针，因为局部对象在函数完成后存储空间也随之释放，返回其引用或指针会造成未定义的行为。
+
+**列表初始化返回值**：C++11标准规定，函数可以返回花括号包围的值的列表，但如果返回的是内置类型，则{}里面只能含有一个值，而且所占的空间不应该大于目标类型的空间。例：
+```C++
+vector<string> porcess() {
+    //expected 和 actual 是 string 对象
+    if (expected.empty())
+        return {}; //返回一个空的vevtor对象
+    else if (expected == actual)
+        return {"functionX", "okay"}; //返回列表初始化的vector对象
+    else
+        rerurn {"functionX", expected, actual};
+}
+```
+#### 返回数组指针
+简单的写法可以使用别名，如：
+```C++
+typedef int arrT[10];
+using arrT = int[10];  //arrT是一个数组别名，含有十个整形
+
+arrT* fuunc(int i); //func返回一个含有10个整数的数组的指针
+```
+如果不使用别名，则书写的时候格式需要注意，为*Type&nbsp;(\*function(parameter_list))&nbsp; [dimension]* ,理解的时候由内向外阅读即可
+
+**使用尾置返回类型**：C++新标准规定可以用尾置返回类型简化声明，例子如下：
+```C++
+//func接受一个int类型的实参，返回一个指针，指向含有10个整数的数组
+auto func(int i)->int(*)[10];
+```
+
+**使用decltype**：如果知道返回的指针指向哪里，那么用decltype关键字即可，例如：
+```C++
+int odd[] = {1, 3, 5, 7, 9};
+int even[] = {2, 4, 6, 8, 10};
+
+//返回一个指针，指向含有5个整数的数组
+//decltype推测odd的时候认为是一个数组类型，所以如果要返回指针需要加上*号
+decltype(odd) *arrPtr(int i) {
+    return (i % 2) ? &odd : &even;
+}
+```
+### 函数重载
+重载的时候顶层const不影响传入函数的对象，如
+```C++
+Record lookup(Phone);
+Record lookup(const Phone); //error! re-defined!
+
+Record lookup(Phone *);
+Record lookup(Phone * const); //error! re-defined!
+```
+底层的const是可以重载的，如：
+```C++
+//定义了4个独立的重载函数，对于接受引用或指针的函数，对象是常量还是非常量对应参数是不同的
+Record lookup(Account&);
+Record lookup(const Account&);
+
+Record lookup(Phone *);
+Record lookup(const *Phone);
+```
+const对象只能传递给const形参，但是非const对象调用函数的时候，会优先调用非常量版本的函数
+
+#### const_cast和重载
+const_cast用在函数重载中的例子如下：
+```C++
+const string &shorterString(const string &s1, const string &s2) {
+    return s1.size() < s2.size() ? s1 : s2;
+}
+
+//该函数中，首先把实参转化成const的引用，然后调用const版本的函数，再将返回值转回非const引用
+string &shorterString(string &s1, string &s2) {
+    auto &r = shorterString(const_cast<const string&>(s1),
+                            const_cast<const string&>(s2));
+    return const_cast<string&>(r);
+}
+```
+#### 重载与作用域
+一般而言，不要将函数声明在局部作用域内，但是为了说明情况，举个例子：
+```C++
+string read();
+void print(const string &);
+void print(double); //overload print
+void fooBar(int ival) {
+    bool read = false;  //屏蔽了read函数
+    string s = read(); //error！ read是bool值而非函数
+
+    void print(int); //屏蔽了之前的print函数
+    print("Value "); //error,之前的print(const string &)被屏蔽了
+    print(3.14);
+    print(ival); //这两句都可以正确执行
+}
+```
+**attention**:C++语言中，名字查找发生在类型检查之前
+
+### 特殊用途语言特性
+#### 默认实参
+在定义函数的时候给形参赋值即可，调用的时候省略相应的实参。注意，一旦函数的某个形参被赋予了初值，那么其后面的所有参数都需要有默认值。在调用的时候只能省略尾部的实参。例如
+```C++
+typedef string::size_type sz;
+string screen(sz ht = 24, sz wid = 80, char background = ' ');
+
+window = screen(, , '?'); //错误，只能省略尾部的实参
+window = screen('?'); //调用screen('?', 80, ' '),即把'?'转化成sz类传递给第一个参数
+```
+对于函数的声明，一个形参只能被赋予一次默认实参，例如
+```C++
+string screen(sz, sz, char = ' ');  //宽和高没有默认值
+string screen(sz, sz, char = '*');  //error！ 不可以重复声明
+string screen(sz = 24, sz = 80, char);  //正确，添加默认声明
+```
+除了局部默认值外，只要表达式的类型可以转化成形参需要的类型，该表达式就可以作为默认实参。（可以灵活地改变表达式的值从而达到改变默认实参的目的）
+
+#### 内联函数和constexpr函数
+在定义函数的时候使用关键字inline，表示内联函数。用来优化规模较小、流程直接、频繁调用的函数。但是编译器可以忽略这个请求。
+
+constexpr函数是用于常量表达式的函数，其返回类型和形参的类型都是字面值类型，而且函数体必须有且仅有一条return语句。不过constexpr并不一定返回常量表达式，可以理解成constexpr做了函数重载，一个是可以返回constexpr一个不可以，具体返回什么看传入的参数是不是constexpr类型
+
+### 调式帮助
+#### assert
+assert为预处理宏，定义在cassert头文件中。用法
+```C++
+assert(word.size() > threshold);
+```
+#### NDEBUG
+assert的行为依赖于NDEBUG的预处理变量状态。如果定义了NDEBUG，则assert什么也不做。默认状态没有定于NDEBUG，则assert进行运行时检查。关闭调试可以用命令行选项
+```shell
+$g++ -D NDEBUG main.c #相当于定于了NDBUG的宏
+```
+其他用法
+```C++
+void print(const int ia[]. size_t size) {
+    #ifndef NDEBUG
+    //__func__是编译器定义的一个局部静态变量，存放函数名
+        cerr << __func__ << endl;
+    #endif
+}
+```
+其他的一些对于调试很有用的名字
++ __FILE__ 存放文件名的字符串字面值
++ __LINE__ 存放当前行号的整形字面值
++ __TIME__ 存放文件编译时间的字符串字面值
++ __DATE__ 存放文件编译日期的字符串字面值
+
+### 函数匹配
+```C++
+void f();
+void f(int);
+void f(int, int);
+void f(double, double = 3.14);
+
+f(5.6); //call void f(double, double)
+f(42, 5.6); //error! 有歧义
+```
+对于f(42, 5.6)的匹配，第一个参数看，最佳匹配是f(int, int)，第二个参数看则是f(double, double), 返回二义性。
+### 实参类型转化
+类型转化的排序：
++ 精确匹配，包括
+    + 实参和形参完全相同
+    + 数组类型或者函数类型转化为指针
+    + 添加或者删除顶层const
++ const转换实现的匹配
++ 类型提升实现的匹配
++ 算数类型转化或者指针转化（void* or 0->nullptr)形成的匹配
++ 类类型转化形成的匹配
+
+类型提升或者算数转化的时候，级别都是一样的，如char->int等，如果都是需要提升，那么会产生二义性，如
+```C++
+void ff(int);
+void ff(short);
+ff('a'); //char->int, call f(int)
+
+void ff(long);
+void ff(float);
+ff(3.14); //error! double->float / double->long 有二义性
+```
+### 函数指针
+函数指针和函数名无关，只与返回类型和形参的类型有关。如：
+```C++
+bool func(const string &, const string &);
+//fp is a pointer can point to func
+bool (*fp)(const string &, const string &);
+
+fp = func;
+fp = &func; //两者等价，将函数名赋给函数指针的时候会自动类型转化
+
+//调用函数的时候，可以直接用指针无需解引用。以下三条语句等价
+bool b1 = fp("hello", "world");
+bool b2 = (*fp)("hello", "world");
+bool b3 = func("hello", "world");
+```
+对于重载函数的指针，必须将返回类型和形参都一一对应。
+
+#### 函数指针形参
+形参可以写成函数类型，但实际上是当作函数指针使用。函数也可以作为实参，但是会自动转化成指针。
+
+#### 返回指向函数的指针
+和函数指针形参不同，当函数返回值是一个函数指针的时候，编译器不会自动将函数类型转化成对应的指针，此时尽量使用别名以免出错。例如
+```C++
+using F = int(int*, int);
+using PF = int(*)(int*, int);
+
+//定义f1返回指向函数的指针，以下几条语句等价
+PF f1(int); 
+F *f1(int);
+int (*f1(int))(int*, int);
+auto f1(int) -> int(*)(int*, int);
+
+F f1(int); //error!!! F是函数类型，f1不能返回函数！
+```

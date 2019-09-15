@@ -1,32 +1,21 @@
 #include <iostream>
 #include <string>
+#include <vector>
 using namespace std;
 
-// extern int j = 2;
+int add(int a, int b)
+{
+	return a+b;
+}
+int subtract(int a, int b) { return a - b; }
+int multiply(int a, int b) { return a * b; }
+int divide(int a, int b) { return b != 0 ? a / b : 0; }
+
 int main(int argc, char const *argv[])
 {
-    // int input_value;
-    // cin >> input_value;
-    // double pi = 3.14;
-    // const int &pp = pi;
-    // int i = 10;
-    // const int &i1 = i;
-    // int &i2 = i;
-    // i2 = 0;
-    // bool c = true;
-    // bool d = -c;
-    // cout << d << endl;
-    // int k = 0;
-    // k = {true};
-    // const int m = 42;
-    // int *i = const_cast<int*>(&m);
-    // (*i) = 50;
-    // cout << *(&m) << " " << *i << endl;
-    // cout << static_cast<const void *>(&m) << " "  << static_cast<const void *>(i) << endl;
-    int m = 97;
-    int *s = &m;
-    char *i = reinterpret_cast<char*>(s);
-    string ss(i);
-    cout << ss << endl;
+    vector<int(*)(int, int)> v{add, subtract, multiply, divide};
+    for (auto f : v)
+        cout << f(2, 2) << endl;    
     return 0;
 }
+
