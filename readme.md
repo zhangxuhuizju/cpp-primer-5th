@@ -1186,3 +1186,39 @@ void Screen::some_member() const {
     ++access_ctr;
 }
 ```
+### 返回*this的成员函数
+例：
+```C++
+class Screen{
+public:
+    //其余代码见chapter7 screen.h
+    Screen &move(pos r, pos c); //可以在定义的时候加上inline变为内联
+    Screen &set(char);
+    Screen &set(pos, pos, char);
+};
+
+inline Screen &Screen::move(pos r, pos c){
+    pos row = r * width;  //计算行的位置
+    cursor = row + c;     //在行内将光标移动到指定的列
+    return *this;         //以左值的形式返回对象
+}
+
+inline Screen& Screen::set(char c) {
+    contents[cursor] = c;
+    return *this;
+}
+
+inline Screen& Screen::set(pos r, pos col, char ch) {
+    contents[r *width + col] = ch;
+    return *this;
+}
+```
+返回类型为Screen&，如果没有&那么返回的是原对象的一个副本而不是原本对象本身。利用这样的写法，可以用以下语句：
+```C++
+myScreen.move(4, 0).set('#');
+
+//如果返回Screen而非Screen&，等价于
+Screen temp = myScreen.move(4, 0);
+temp.set('#');
+```
+如果从const成员函数中返回this*，那么返回的是常量引用，无法对其的值进行修改。

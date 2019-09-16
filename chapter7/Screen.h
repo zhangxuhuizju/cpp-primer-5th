@@ -14,6 +14,8 @@ public:
     char get() const {return contents[cursor];}  //隐式内联
     inline char get(pos ht, pos wd) const;  //显示内联
     Screen &move(pos r, pos c); //可以在定义的时候加上inline变为内联
+    Screen &set(char);
+    Screen &set(pos, pos, char);
 
 private:
     pos cursor = 0;
