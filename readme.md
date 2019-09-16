@@ -1049,3 +1049,140 @@ auto f1(int) -> int(*)(int*, int);
 
 F f1(int); //error!!! F是函数类型，f1不能返回函数！
 ```
+
+## chapter7 类
+从构造一个类开始讨论类的一些细节。构造一个sales_data类，接口包含
++ isbn成员函数，返回ISBN编号
++ combine成员函数，将一个sales_data对象加到另一个对象上
++ add函数，执行两个sales_data对象的加法
++ read函数，将数据从istream读入到sales_data对象
++ print函数，输出到ostream
+
+从而得到类的一个基本表示
+```C++
+struct Sales_data{
+    //新成员，关于Sales_data对象的操作
+    std::string isbn() const{ return bookNO; }
+    Sales_data& combine(const Sales_data&);
+    double avg_price() const;
+
+    std::string bookNO;
+    unsigned units_sold = 0;
+    double revenue = 0.0;
+}
+//Sales_data的非成员函数接口
+Sales_data add(const Sales_data&, const Sales_data&);
+std::ostream &print(std::ostream&, const Sales_data&);
+std::istream &read(std::istream&, const Sales_data&);
+```
+**attention**:类的成员函数必须在类内声明，但是可以在外部定义。定义在类内部的函数是隐式的inline函数
+
+### 引入this
+成员函数通过一个this的额外隐式参数来访问调用它的那个对象。当调用一个成员函数时，用请求该函数的对象地址初始化this。
+
+this是一个常量指针，不能改变this的地址。
+
+### const成员函数
+上文中的`std::string isbn() const{ return bookNO; }`语句，const是用来修饰this指针的。默认情况下，this指向类类型非常量的常量指针。即this指针类型为`Sales_data *const`。而在成员函数后面用const表示常量成员函数，无法对其对象的数据成员写入新值,this指针类型为`const Sales_data *const`。
+
+常量对象，常量对象的引用或者指针只能调用常量成员函数。
+
+### 类外部定义成员函数
+对Sales_data的avg_price进行定义，如下：
+```C++
+double Sales_data::avg_price() const{
+    if (units_sold)
+        return revenue/ units_sold;
+    else 
+        return 0;
+}
+```
+式中::表示该函数被定义在xx类中。
+
+### 定义返回this对象的函数
+对于Sales_data类的combine函数进行如下定义：
+```C++
+Sales_data& Sales_data::combine(const Sales_data& rhs) {
+    units_sold += rhs.units_sold;
+    revenue += ths.revenue;
+    return *this;
+}
+```
+上文中的`return *this;`返回调用该函数的对象
+
+### 类相关的非成员函数
+对伊一些辅助函数，不属于类本身，但是属于类的接口的组成部分，此时一般将其声明在类的同一个头文件内
+
+例如上例中的read和print函数
+```C++
+istream &read(istream &is, Sales_data &item) {
+    double price = 0;
+    is >> item.bookNo >> item.units_sold >> price;
+    item.revenue = price * item.units_sold;
+    return is;
+}
+
+ostream &print(ostream &os, const Sales_data &item) {
+    os << item.isbn() << " " << item.units_sold << " "
+       << item.revenue << " " << item.avg_price();
+    return os;
+}
+```
+istream和ostream都是IO类，不能拷贝，因此必须用引用来传递
+
+对于add函数，用来将两个sales_data对象作为参数，返回一个新的对象
+```C++
+Sales_data add(const Sales_data &lhs, const Sales_data &rhs) {
+    Sales_data sum = lhs;
+    sum.combine(rhs);
+    return sum;
+}
+```
+### 构造函数
+构造函数不能声明成const,由于创建const对象的时候，直到构造函数完成初始化过程，对象才能真正取得其常量属性，因此**构造函数在const对象构造过程中可以向其写入值**。
+
+只有类没有声明任何构造函数的时候，编译器才会自动生成默认构造函数。对于默认构造函数，C++11标准里可以直接用`classname() = default`即可。可以写在类内也可以写在类外，区别为是否内联。默认构造函数初始化数据成员规则如下：
++ 如果存在类内初始值，用它初始化成员
++ 不存在，则默认初始化成员
+
+**tips:** 构造函数不应该轻易覆盖类内的初始值，除非要赋予一个与原值不同的值。如果没有类内初始值，则所有构造函数最好显示初始化每个内置类型的成员。
+
+### 访问控制与封装
++ public成员在整个程序内可以被访问
++ private成员可以被类内的成员函数访问，但是不能被使用该类的代码访问
+
+class和struct定义类的唯一区别就是默认访问权限。
+
+### 友元
+类可以允许其他类或者函数访问其非公有成员，方法是让其他类或者函数称为友元(friend)。友元声明在类的内部，尽量写在开始或者结束的位置，以friend关键字开头。
+
+友元声明仅仅指定了访问权限，而非真正的函数声明。因此在类内声明友元后，在对应的头文件中还需要声明相应的函数。
+
+### 定义类型成员
+类可以自定义某种类型在类中的别名，该类姓名和其他成员一样存在访问权限。用来定义类型的成员必须先定义后使用，一般写在类的起始位置。如：
+```C++
+class Screen{
+public:
+    using pos = std::string::size_type;
+    //或者可以用等价的语句
+    //typedef std::string::size_type pos;
+private:
+    pos cursor = 0;
+    pos height = 0, width = 0;
+    std::string contents;
+}
+```
+### 可变数据成员
+关键字mutable可以让某个数据成员可修改，即使是在const对象的成员依然可以修改。例如
+```C++
+class Screen{
+public:
+    void some_member() const;
+private:
+    mutable size_t access_ctr;
+}
+
+void Screen::some_member() const {
+    ++access_ctr;
+}
+```
