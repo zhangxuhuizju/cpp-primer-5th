@@ -1481,3 +1481,118 @@ private:
     static const char bkground;
 }
 ```
+## IO类
+||IO库类型和头文件|
+-|-
+**头文件** | **类型**
+iostrem | istream, wistream 从流中读数据
+&nbsp; | ostream, wostream 向流中写数据
+&nbsp; | iostream, wiostream 读写流
+fstream | ifstream, wifstream 从文件中读数据
+&nbsp; | ofstream, wofstream 向文件中写数据
+&nbsp; | fstream, wfstream 读写文件
+sstream | istringstream, wistringstream 从string中读数据
+&nbsp; | ostringstream, wostringstream 向string中写数据
+&nbsp; | stringstream, wstringstream 读写string
+
+上表中，w表示宽字符版本类型。对于IO对象，无拷贝和赋值，例如：
+```C++
+ofstream out1, out2;
+out1 = out2; //错误，流对象不能赋值
+ofstream print(ofstream); //错误，不能初始化ofstream参数
+out2 = print(out2);  //错误，不能拷贝流对象
+```
+||IO库条件状态|
+-|-
+**头文件** | **类型**
+strm::iostate | strm是一种IO类型，iostate为一种机器类型，提供表达条件状态的完整功能
+strm::badbit | 致命的输入/输出错误,无法挽回
+strm::failbit | 非致命的输入/输出错误，可挽回
+strm::eofbit | 已到达文件尾
+strm::goodbit | 此值保证为0,指出流未处于错误状态
+s.eof() | 返回s的eofbit是否置位
+s.fail() | 返回s的failbit或badbit是否置位
+s.bad() | 返回s的badbit是否置位
+s.good() | 返回流s是否处于有效状态
+s.clear() | 将流s的所有条件状态复位，状态设为有效，返回void
+s.clear(flags) | 根据flags将流s对应的条件状态位复位，flags类型位stm::iostate
+s.setstate(flags) | 效果同上
+s.rdstate() | 返回流s的当前状态，返回类型为stm::iostate
+
+例子如下：
+```C++
+auto old_state = cin.rdstate();   //记住cin的当前状态
+cin.clear();                      //使cin有效
+process_input(cin);               //使用cin
+cin.setstate(old_state);          //把cin设回原有状态
+```
+### 输出缓冲区管理
+输出缓冲区刷新的原因：
++ 程序正常结束
++ 缓冲区满需要刷新
++ endl等操纵符显示刷新
++ 可以使用unitbuf设置流的内部状态。默认状态下cerr是设置unitbuf的，因此cerr内容是立即刷新的
++ 一个输出流关联到另一个流，例如cin和cerr都关联到cout，因此读cin或者写cerr都会导致cout缓冲区被刷新
+
+**刷新输出缓冲区**
+```C++
+cout << "hi!" << endl;  //输出hi和一个换行，然后刷新缓冲区
+cout << "hi!" << flush; //输出hi，然后刷新缓冲区
+cout << "hi!" << ends;  //输出hi和一个空字符，然后刷新缓冲区
+```
+**unitbuf操作符**：如果每次输出操作都想刷新缓冲区，可以用unitbuf操纵符，例如：
+```C++
+cout << unitbuf;       //所有输出操作后都会立即刷新缓冲区
+cout << nounitbuf;     //回到正常的缓冲方式
+```
+程序如果崩溃，是不会刷新输出缓冲区。因此程序崩溃后，需要手动刷新输出缓冲区。
+
+输入输出流的关联用tie函数，用法如下：
+```C++
+cin.tie(&cout);  //cin和cout关联在一起
+//old_tie指向当前关联到cin的流，如果有的话
+ostream *old_tie = cin.tie(nullptr);  //cin不再与其他流关联
+cin.tie(&cerr);  //cin与cerr关联，即读cin会刷新cerr
+cin.tie(old_tie); //重建cin和cout之间的正常关联
+```
+一个流同时最多关联到一个流，但是多个流可以同时关联到同一个ostream。
+
+### 文件输入输出
+||fstream特有的操作|
+-|-
+fstream fstrm| 创建一个未绑定的文件流。fstream是头文件fstream中定义的某类型
+fstream fstrm(s) | 创建一个fstrm并打开名为s的文件
+fstream fstrm(s, mode) | 按照mode打开文件
+fstrm.open(s) | 打开文件s并与fstrm绑定，返回void
+fstrm.close() | 关闭与fstrm绑定的文件，返回void
+fstrm.is_open() | 返回一个bool，指出与fstrm关联的文件是否成功打开且尚未关闭
+
+当fstream对象被销毁的时候，close会自动调用。
+
+### 文件模式
+|| 文件模式|
+-|-
+in | 读方式打开
+out | 写方式打开
+app | 每次写操作定位到文件末尾
+ate | 打开文件后立即定为到文件末尾
+trunc | 截断文件
+binary | 二进制方式进行IO
+
+使用举例：
+```C++
+//file1在以下语句中都被截断，三者效果一样
+ofstream out("file1");
+ofstream out2("file1, ofstream::out); 
+ofstream out3("file1", ofstream::out | ofstream::trunc);
+//为了保留文件，显示指定app模式
+ofstream app("file2", ofstream::app);  //隐含为输出模式
+ofstream app2("file2", ofstream::out | ofstream::app);
+```
+### string流
+|| stringstream流|
+-|-
+sstream strm; | strm是未绑定的stringstream对象
+sstream strm(s); | 绑定s的一个拷贝
+strm.str(); | 返回strm保存的string的拷贝
+strm.str(s); | 将string s拷贝到strm中，返回void
