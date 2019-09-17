@@ -1222,3 +1222,262 @@ Screen temp = myScreen.move(4, 0);
 temp.set('#');
 ```
 如果从const成员函数中返回this*，那么返回的是常量引用，无法对其的值进行修改。
+
+### 基于const的重载
+根据成员函数是否为const，可以进行重载。即函数可以根据是否有底层const进行重载。例如：
+```C++
+class Screen {
+public:
+    Screen &display(std::ostream &os) {
+        do_display(os);
+        return *this;
+    }
+
+    const Screen &display(std::ostream &os) const{
+        do_display(os);
+        return *this;
+    }
+
+private:
+    void do_display(std::ostream &os) const {
+        os << contents;
+    }
+}
+```
+### 类的声明
+类可以暂时声明而不定义，但是在创建对象之前必须定义它，不然编译器不知道需要分配多少空间。因此，一个类的成员里面不能有类本身。但是类被声明之后，成员就可以有指向类本身的指针。
+
+### 类之间的友元
+写法如下：
+```C++
+class Screen {
+    //Window_mgr 成员可以访问 Screen 类的私有部分
+    friend class Window_mgr;
+}
+```
+友元关系没有传递型，即Window_mgr可以访问Screen中的成员，但是Window_mgr的友元是不能访问的。如果指向让Window_mgr的某个成员函数访问Screen中的成员，可以有下述写法：
+```C++
+class Screen {
+    friend void Window_mgr::clear(ScreenIndex);
+}
+```
+上例中的程序设计流程如下：
++ 先定义Window_mgr类，声明clear函数，但不定义。因为clear使用Screen成员之前必须先声明Screen
++ 定义Screen，包括对clear的友元声明
++ 最后定义clear，此时它才能使用Screen的成员
+
+对于重载的函数，每个函数都是不同的函数，因此声明友元的时候需要每一个分别声明才行。
+
+对于友元的声明，仅仅是影响访问权限，本身并不是普通的声明，例子如下：
+```C++
+struct X{
+    friend void f() {}
+    X() { f(); } //error! f is undefined!
+    void g();
+    void h();
+}
+void X::g() {
+    return f();   //error! f is undefined!
+}
+void f();
+void X::h() {
+    return f();  //correct!
+}
+```
+### 名字查找和类的作用域
+类的定义分两步处理：
++ 首先编译成员的声明
++ 全部的类可见之后再编译函数体
+
+因此，定义在类内部的函数顺序不太要紧，因为成员函数体直到整个类可见后才会被处理。但这两条规则仅适用于成员函数中使用的名字，声明中使用的名字和返回类型中的名字都必须在定义前可见。例：
+```C++
+typedef double Money;
+string bal;
+class Account {
+public:
+    Money balance() {return bal;}  //bal为函数体内的bal，Money在函数体外查找到
+private:
+    Money bal;
+}
+```
+在类中，成员如果使用了外层作用域中的某个名字，而该名字代表某类，则不能重新定义该名字
+```C++
+typedef double Money;
+string bal;
+class Account {
+public:
+    Money balance() {return bal;} 
+private:
+    typedef double Money;   //error！不能重新定义money
+    Money bal;
+}
+```
+类的成员函数中使用的名字解析过程：
++ 首先在函数内查找，此时只查找函数使用之前出现的声明才会查找
++ 其次在类内继续查找
++ 类内也找不到则在成员函数定义之前的作用域内继续查找
+
+例如：
+```C++
+int height;
+class Screen {
+public:
+    typedef std::string::size_type pos;
+    void dummy_fun(pos height) {
+        cursor = width * height;  //height为最先定义的参数
+    }
+private;
+    pos cursor = 0;
+    pos height = 0, width = 0;
+}
+
+//如果要让height为成员变量，则有以下几种写法：
+void dummy_fun(pos height) {
+    cursor = width * this->height;
+    cursor = width * Screen::height;
+}
+
+//以下函数中，height在函数作用域内找不到，则在类内继续查找，找到类内的成员变量
+void dummy_fun(pos ht) {
+    cursor = width * height;   
+}
+```
+如果需要用全局的height，可以用`::height`作用域控制符。
+
+### 构造函数初始化再谈
+对于Sales_data的构造函数初始化方式有两种看上去等价的：
+```C++
+Sales_data(const string &s, unsigned u, double p):
+               bookNo(s), units_sold(u), revenue(u*p){}
+
+Sales_data::Sales_data(const string &s, unsigned u, double p) {
+    bookNo = s;
+    units_sold = u;
+    revenue = u * p;
+}
+```
+两者的区别在于，第一种写法是直接赋初值，第二种是默认初始化后再进行赋值，效率较低。构造函数一开始执行，则初始化就完成了。因此对于一些const变量或者没有构造函数的类变量必须使用构造函数赋初值，如：
+```C++
+class ConstRef {
+public:
+    ConstRef(int ii);
+private:
+    int i;
+    const int ci;
+    int &ri;
+}
+
+ConstRef::ConstRef(int ii) {
+    i = ii;   //正确
+    ci = ii;  //error,不能给const赋值
+    ri = i;  //error,ri没有初始化
+}
+
+//正确写法应该是：
+ConstRef::ConstRef(int ii):i(ii), ci(ii), ri(i) {}
+```
+### 成员初始化顺序
+构造函数中的初始化列表顺序不影响成员的初始化顺序，成员的初始化顺序只和其定义的顺序有关。例如：
+```C++
+class X {
+    int i;
+    int j;
+public:
+    //undefined, i在j之前被初始化！！！
+    X(int val) : j(val), i(j){};
+}
+```
+对于默认构造函数，可以在其参数列表中加入默认实参值，这样就可以将其与只接受一个相应实参的构造函数卸载一起。
+
+### 委托构造函数
+写法举例：
+```C++
+class Sales_data {
+public: 
+    //非委托构造函数
+    Sales_data(const string &s, unsigned u, double p):
+               bookNo(s), units_sold(u), revenue(u*p){}
+    //委托构造函数
+    Sales_data(): Sales_data("", 0, 0){}
+    Sales_data(std::string s): Sales_data(s, 0, 0){}
+    Sales_data(std::istream &is): Sales_data() {
+        read(is, *this);
+    }
+}
+```
+对于委托构造函数，受委托的函数会依次执行初始化列表和函数体，然后再返回委托函数的函数体。
+
+### 隐式的类类型转换
+类的类型之间可以有隐式的转化，但是只能转化一步，不能多步，例如：
+```C++
+string null_book = "9-999-99999-9";
+//会创造一个临时的Sales_data对象，利用null_book进行构造
+item.combine(null_book);
+//以下写法与上面等价
+item.combine(string("9-999-99999-9"));
+item.combine(Sales_data("9-999-99999-9"));
+
+//以下写法错误,因为要先把其转成string再转化
+item.combine("9-999-99999-9");
+```
+类的类型转换不是总有效的，可以在构造函数前加`explicit`关键字加以阻止。其仅对与有一个实参的构造函数有效，对于有多个实参的构造函数本身就无法进行隐式转换。此外，`explicit`关键字只能在类内声明的时候用，类外部定义时不能重复。`explicit`构造函数只能用于直接初始化，不能用于拷贝形式的初始化过程(=赋值)，如：
+```C++
+//假设构造函数是explicit的
+Sales_data item1(null_book);
+Sales_data item2 = null_book; //error, explicit的构造函数不能用于拷贝初始化
+```
+要使用`explicit`的构造函数，可以用`static_cast`进行转化，如
+```C++
+item.combine(static_cast<Sales_data>(cin));
+```
+### 聚合类
+聚合类需要满足以下要求：
++ 所有成员都是public的
++ 没有定义任何构造函数
++ 没有类内初始值
++ 没有基类，也没有虚函数
+
+聚合类可以用{}括起来的成员初始值列表来初始化。
+
+### 字面值常量类
+数据成员都是字面值类型的聚合类是字面值常量类。如果不是聚合类，但符合以下要求，则其也是一个字面值常量类：
++ 数据成员都是字面值类型
++ 类至少有一个constexpr构造函数
++ 如果一个数据成员有类内初始值，则初始值必须是一条常量表达式。如果成员是某个类类型，则初始值必须使用成员自己的constexpr构造函数
++ 必须使用默认的析构函数
+
+constexpr构造函数的函数体一般是空的。
+
+### 类的静态成员
+类的静态成员函数不包含this指针，因此不能声明成const，也不能在static函数体内使用this指针。静态成员函数可以在类的外部定义，此时不能重复static关键字。
+
+静态成员的初始化一般是在类的外部定义并且初始化的，但是有一个例外，如
+```C++
+class Amount{
+    static constexpr int period = 30;
+    double daily_tbl[period];
+};
+```
+period在类的内部就被初始化了，那么在类的外部不能再指定初始值。但是为了规范，一般在类外也定义一下该成员，用`constexpr int Amount::period;`语句.否则无法在类外部被使用。
+
+静态成员和普通成员的两个区别
++ 静态数据成员可以是不完全类型（已经声明但还没有完整定义，不完全类型只能用于指针、引用和返回该类型的函数），如
+```C++
+class Bar {
+public:
+    //...
+private:
+    static Bar mem1;    //静态成员可以是不完全类型
+    Bar *mem2;          //指针成员可以是不完全类型
+    Bar* mem3;          //error！数据成员必须是完全类型！！！
+}
+```
++ 静态成员可以用于默认实参。非静态数据成员不能用于默认实参，如
+```C++
+class Screen {
+public:
+    Screen& clear(char = bkground);
+private:
+    static const char bkground;
+}
+```
