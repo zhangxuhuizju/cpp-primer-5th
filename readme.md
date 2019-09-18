@@ -1596,3 +1596,88 @@ sstream strm; | strm是未绑定的stringstream对象
 sstream strm(s); | 绑定s的一个拷贝
 strm.str(); | 返回strm保存的string的拷贝
 strm.str(s); | 将string s拷贝到strm中，返回void
+
+## chapter9 顺序容器
+|| 顺序容器类型|
+-|-
+vector | 可变大小数组，支持快速随机访问
+deque | 双端队列
+list | 双向链表
+forward_list | 单项链表，没有size操作
+array | 固定大小数组
+string | 与vector类似，专门保存字符
+
+### 容器定义和初始化
+容器初始化为另一个容器的拷贝，可以直接拷贝整个容器，或者拷贝由一个迭代器对指定的元素范围。为了创建拷贝，要求容器的类型和元素的类型都匹配。但使用迭代器参数拷贝则不要求容器类型相同，而且元素类型只要能转化即可。例：
+```C++
+list<string> authors = {"Milton", "shakespeare", "Austen"};
+vector<const char*> articles = {"a", "an", "the"};
+
+list<string> list2(authors); //correct
+deque<string> authList<authors); //error! 容器类型不匹配
+//正确，const char*可以转化成string
+forward_list<string> words(articles.begin(), articles.end());
+```
+### 标准库array
+array标准库的大小也是容器的一部分，用法举例如下：
+```C++
+array<int, 42> //类型为保存42个int的数组
+array<string, 10> //类型为保存10个string的数组
+
+array<int, 10>::size_type i;  //数组类型要包括元素类型和大小
+array<iint>::size_type j;     //error!!! array<int>不是一个类型，必须包含大小
+
+array<int, 10> digits = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+array<int, 10> copy = digits; //对于标准库array只要类型相同赋值操作即合法
+```
+### 赋值和swap
+|| 容器赋值运算|
+-|-
+c1=c2 | 将c1中的元素替换成c2中元素的拷贝
+c={a,b,c...} | c中元素替换成初始化列表的拷贝，array不适用
+swap(c1, c2) <br> c1.swap(c2) | 交换c1和c2中的元素，两者必须有相同的类型。<br>swap通常比拷贝快很多
+assign操作不适用于关联容器和array |
+seq.assign(b, e) | seq中的元素替换成迭代器b，e范围中的元素
+seq.assign(il) | seq中的元素替换成初始化列表il中的元素
+seq.assign(n,t) | seq中的元素替换成n个值为t的元素
+
+赋值相关操作会导致左边容器的迭代器、引用和指针失效。而swap不会，但是指向的容器变了（string和array除外）。
+
+使用举例：
+```C++
+list<string> names;
+vector<const char*> oldstyle;
+names = oldstyle;  //error！容器类型不匹配
+//可以将const char*转化成string
+names.assign(oldstyle.cbegin(), oldstyle.cend());
+```
+需要注意的是，swap交换array的时候会真正交换他们之间的元素，因此交换两个array所需时间与array中元素数目成正比。因此对array，swap交换后的指针、引用和迭代器绑定的元素保持不变，但是元素值已经变了。
+
+swap函数建议使用非成员版本的swap(a,b)
+
+### 向顺序容器添加元素
+|| 顺序容器添加元素操作|
+-|-
+此类操作会改变容器大小，array不支持|
+forward_list有自己的inset和emplace |
+forward_list不支持push_back和emplace_back |
+c.push_back<t><br>c.emplace_back(*args*) | 在c1的尾部创建一个值为t或者由args创建的元素，返回void
+c.push_front<t><br>c.emplace_front(*args*) | 在c1的头部创建一个值为t或者由args创建的元素，返回void
+c.insert(p, t)<br>c.implace(p, *args*) | 在迭代器p指向的元素之前创建一个值为t或者由args创建的元素，返回被添加元素的迭代器
+c.insert(p, n, t)<br>c.insert(p, b, e)<br>c.insert(p, il) | 在c中迭代器p指向的元素之前插入由括号中的参数指明的一系列元素，返回新添加的第一个元素的迭代器。如果没有元素新添加，则返回p
+
+向一个vector、string或deque插入元素会使得所有指向容器的迭代器、引用和指针失效！！！
+
+添加到容器中的元素是拷贝添加，不会影响到原本的元素，需要注意。此点与Java不同。
+
+emplace函数直接在容器中构造元素，不需要创建一个临时变量再压入容器。传递给emplace函数的参数必须与元素类型的构造函数相匹配。
+
+### 访问元素
+|| 顺序容器中访问元素操作|
+-|-
+at和下标只适用于string、vector、deque和array|
+back不适用与forward_list |
+c.back() | 返回c中尾元素的引用。如果c为空，函数未定义
+c.front() | 返回c中首元素的引用。如果c为空，函数未定义
+c[n] | 返回c中下标为n的元素的引用，下标溢出则未定义
+c. at[n] | 返回c中下标为n的元素的引用，下标溢出则抛出异常
