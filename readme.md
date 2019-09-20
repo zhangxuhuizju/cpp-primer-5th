@@ -1481,7 +1481,7 @@ private:
     static const char bkground;
 }
 ```
-## IO类
+## chapter8 IO类
 ||IO库类型和头文件|
 -|-
 **头文件** | **类型**
@@ -1681,3 +1681,76 @@ c.back() | 返回c中尾元素的引用。如果c为空，函数未定义
 c.front() | 返回c中首元素的引用。如果c为空，函数未定义
 c[n] | 返回c中下标为n的元素的引用，下标溢出则未定义
 c. at[n] | 返回c中下标为n的元素的引用，下标溢出则抛出异常
+
+### 删除元素
+|| 顺序容器中访问元素操作|
+-|-
+这些操作会改变容器大小，不适用于array|
+forward_list有特殊的erase操作 |
+forward_list不支持pop_back |
+vector和string不支持pop_front |
+c.pop_back() | 删除c中尾元素，返回void。如果c为空，函数未定义
+c.pop_back() | 删除c中首元素，返回void。如果c为空，函数未定义
+c.erase(p) | 删除p所指向的元素，返回被删除元素之后元素的迭代器
+c.erase(b, e) | 删除b和e指定范围内的元素，返回最后一个被删除的元素之后元素的迭代器
+
+注意，删除deque除了首尾位置之外的任何元素都会使所有迭代器、引用和指针失效。指向vector或string中删除点之后的迭代器、引用和指针都会失效。
+
+### 特殊的forward_list操作
+由于单项链表没法获取其前驱，因此很多操作是通过改变迭代器指向元素的后续来实现的，基本操作类型如下：
+|| forward_list中插入或删除元素的操作|
+-|-
+lst.before_begin()<br>list.cbefore_begin| 返回指向链表首元素之前不存在元素的迭代器，不能解引用。
+lst.insert_afert(p,t)<br> lst.insert_afert(p,n,t)<br>lst.insert_afert(p,b,e)<br>lst.insert_afert(p,il)| 在迭代器p之后的位置插入元素，如果p是尾后迭代器，则行为未定义。返回一个指向最后一个插入元素的迭代器。
+emplace_after(p, *args*) | 使用args在p指定的位置后创建一个元素，返回新元素。p不能使尾迭代器
+lst.erase_after(p)<br>lst.erase_after(b, e) | 删除p之后的元素或者删除从b到e之间的元素，然后返回指向被删除元素素之后元素的迭代器。如果不存在这样的元素，返回尾迭代器。p不能使尾元素或者尾迭代器
+
+### 容器操作改变迭代器
+```C++
+//删除偶数元素，复制每个奇数元素举例
+vector<int> vi = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+auto iter = vi.begin();
+while (iter != vi.end()) {
+    if (*iter % 2) {
+        iter = vi.insert(iter, *iter);  //复制当前元素
+        iter += 2;
+    } else {
+        iter = vi.erase(iter);          //删除偶数元素
+    }
+}
+```
+
+### 管理容器的成员函数
+|| 容器大小管理操作|
+-|-
+capacity和reserve只适用于vector和string| 
+shrink_to_fit只适用于vector、string和deque| 
+c.shrink_to_fit() | 将capacity()减少为和size()相同大小
+c.capacity() | 不重新分配，c可以保存多少元素
+c.reserve()| 分配至少能容纳n个元素的内存空间
+
+reserve影响的是内存空间，而不是元素数量。resize影响的是元素数量，而不是内存空间。
+
+shrink_to_fit操作并不能保证一定退回空间。vector只有在容量不够的情况下才会扩容。
+
+### 构造string的其他方法
+| | |
+-|- 
+string s(cp, n) | s是cp指向数组的前n个字符的拷贝，此数组至少包含n个字符
+string s(s2, pos2) | s从s2的pos2开始拷贝，pos2不能大于s2.size()
+string s(s2, pos2, len2)| 拷贝最多len2个字符或者拷贝到s2结尾
+
+用法举例：
+```C++
+const char *cp = "Hello world!!!";   //end with '\0'
+char noNull[] = {'H', 'i'};         //end without '\0'
+string s1(cp); //s1 == "Hello world!!!"
+string s2(noNull, 2);  //s2 == "Hi"
+string s3(noNull);     //undefined! noNull is not end with '\0'
+string s4(cp+6, 5);    //s4 == "world"
+string s5(s1, 6, 5);   //s5 == s4
+string s6(s1, 6);      //s6 == "world!!!"
+string s7(s1, 6, 20);  //s7 == s6
+string s8(s1, 16);     //throw an out_of_range error
+```
+string和数字之间的转化，有sto(i/l/ul/ll/ull)代表string to int/long......其中函数可以传三个参数，(s, p, b),p保存第一个非数值字符下标，b表示进制。数字转成string用to_string函数。
