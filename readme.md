@@ -1754,3 +1754,285 @@ string s7(s1, 6, 20);  //s7 == s6
 string s8(s1, 16);     //throw an out_of_range error
 ```
 string和数字之间的转化，有sto(i/l/ul/ll/ull)代表string to int/long......其中函数可以传三个参数，(s, p, b),p保存第一个非数值字符下标，b表示进制。数字转成string用to_string函数。
+
+## chapter10 范型算法
+本章主要讲各种标准库算法的应用，学习这类算法最好的方式就是看源码了，而且对着代码学也相对easy。
+```C++
+//find
+template<class InputIterator, class T>
+  InputIterator find (InputIterator first, InputIterator last, const T& val)
+{
+  while (first!=last) {
+    if (*first==val) return first;
+    ++first;
+  }
+  return last;
+}
+
+//accumulate
+template <class InputIterator, class T>
+   T accumulate (InputIterator first, InputIterator last, T init)
+{
+  while (first!=last) {
+    init = init + *first;
+    ++first;
+  }
+  return init;
+}
+
+//equal, the lenght of frist2 is at least last1-first1
+template <class InputIterator1, class InputIterator2>
+  bool equal ( InputIterator1 first1, InputIterator1 last1, InputIterator2 first2 )
+{
+  while (first1!=last1) {
+    if (!(*first1 == *first2)) 
+      return false;
+    ++first1; ++first2;
+  }
+  return true;
+}
+
+//fill
+template <class ForwardIterator, class T>
+  void fill (ForwardIterator first, ForwardIterator last, const T& val)
+{
+  while (first != last) {
+    *first = val;
+    ++first;
+  }
+}
+
+//copy
+template<class InputIterator, class OutputIterator>
+  OutputIterator copy (InputIterator first, InputIterator last, OutputIterator result)
+{
+  while (first!=last) {
+    *result = *first;
+    ++result; ++first;
+  }
+  return result;
+}
+
+//replace
+template <class ForwardIterator, class T>
+  void replace (ForwardIterator first, ForwardIterator last,
+                const T& old_value, const T& new_value)
+{
+  while (first!=last) {
+    if (*first == old_value) *first=new_value;
+    ++first;
+  }
+}
+
+//replace_copy
+template <class InputIterator, class OutputIterator, class T>
+  OutputIterator replace_copy (InputIterator first, InputIterator last,
+                               OutputIterator result, const T& old_value, const T& new_value)
+{
+  while (first!=last) {
+    *result = (*first==old_value)? new_value: *first;
+    ++first; ++result;
+  }
+  return result;
+}
+
+//unique,保证已排序好的容器中所有元素都唯一
+template <class ForwardIterator>
+  ForwardIterator unique (ForwardIterator first, ForwardIterator last)
+{
+  if (first==last) return last;
+
+  ForwardIterator result = first;
+  while (++first != last)
+  {
+    if (!(*result == *first))  
+      *(++result)=*first;
+  }
+  return ++result;
+}
+
+//transform
+template <class InputIterator, class OutputIterator, class UnaryOperator>
+  OutputIterator transform (InputIterator first1, InputIterator last1,
+                            OutputIterator result, UnaryOperator op)
+{
+  while (first1 != last1) {
+    *result = op(*first1); 
+    ++result; ++first1;
+  }
+  return result;
+}
+
+//fill_n
+template <class OutputIterator, class Size, class T>
+  OutputIterator fill_n (OutputIterator first, Size n, const T& val)
+{
+  while (n>0) {
+    *first = val;
+    ++first; --n;
+  }
+  return first;     // since C++11
+}
+```
+介绍了fill_n之后，可以看到它每次都是给first赋值。此处引入一个`back_inserter`，接受一个指向容器的引用，返回一个与该容器绑定的插入迭代器。通过该迭代器赋值时，赋值运算会调用`push_back`操作。例：
+```C++
+vector<int> vec;   //空向量
+fill_n(back_inserter(vec), 10, 0);   //根据之前fill_n的实现，该操作可以添加10个0到vec
+```
+**attention:** 标准库算法对迭代器而不是容器进行操作，因此算法不能直接添加或删除元素。
+
+`stable_sort(a.begin(), a.end(), cmp)`,在通过cmp比较排序之后，对于cmp比较过程中相等的元素按照原有的默认方法进行排序。
+
+### lambda表达式
+基本形式`[cpature list](parameter list) -> return type{function body}`;
+
+其中，lambda必须使用尾置返回类型，可以忽略参数列表和返回类型，但必须永远包含捕获列表和函数体，如：`auto f = []{return 42}`，定义了一个f，不接受参数，返回42.返回类型不指定则根据return的代码来推断。
+
+利用lambda表达式的例子：
+```C++
+//按长度排序，长度相同的按字典序排序
+stable_sort(words.begin(), words.end(),
+    [](const string &a, const string &b)
+        {return a.size() < b.size();});
+
+void biggies(vector<string> &words, vector<string>::size_type sz) {
+    elimDups(words);  //将words按字典排序，删除重复单词
+    stable_sort(words.begin(), words.end(), isShorter);
+    //此处的lambda表达式用捕获列表捕获了所在函数的局部变量sz，不捕获则无法使用sz
+    auto wc = find_if(words.begin(), words.end(),
+                      [sz](const string &a){return a.size() >= sz;});
+}
+
+//for_each
+template<class InputIterator, class Function>
+  Function for_each(InputIterator first, InputIterator last, Function fn)
+{
+  while (first!=last) {
+    fn (*first);
+    ++first;
+  }
+  return fn;
+}
+
+//利用for_each和lambda，可以写出很简单的表达式。如打印所有单词
+for_each(words.begin(), words.end(),
+        [](const string& s){cout << s << ' ';});
+```
+**attention**:捕获列表只用于局部非static变量，lambda可以直接使用局部static变量和在它所在函数之外声明的名字
+
+lambda的捕获有值捕获和引用捕获两种，lambda在创建的时候就把被捕获的变量拷贝，例：
+```C++
+void fun1() {
+    size_t v1 = 42;
+    auto f = [v1]{return v1;};
+    v1 = 0;
+    auto j = f();  // j == 42;
+}
+
+void fun2() {
+    size_t v1 = 42;
+    auto f = [&v1]{return v1;};
+    v1 = 0;
+    auto j = f();  // j == 0;
+}
+```
+lambda捕获指针或引用的时候，很可能到他执行的时候，对象的值已经完全不同了。因此尽量减少捕获的数据量，并且尽量避免捕获指针或引用。
+
+### lambda隐式捕获
+可以让编译器自行推断捕获列表，&表示捕获引用方式，=表示值捕获方式。例：
+```C++
+//sz让编译器自动推断是隐式的值捕获
+auto wc = find_if(words.begin(), words.end(),
+                      [=](const string &a){return a.size() >= sz;});
+
+```
+如果需要对一部分用引用捕获，一部分用值捕获，则可以用显示和隐式捕获相结合的方式，但是捕获列表的第一个元素必须是 = 或者 &，指定默认捕获方式。当使用混合方式的时候，显示和隐式的捕获方式必须是不一样的！！！
+
+#### 可变lambda
+利用关键字mutable可以改变lambda表达式对于捕获变量的值。例如：
+```C++
+void fun3() {
+    size_t v1 = 42;
+    auto f = [v1]()mutable{return ++v1;};
+    v1 = 0;
+    auto j = f();  // j == 43;
+}
+
+void fun4() {
+    size_t v1 = 42;
+    auto f = [&v1]()mutable{return ++v1;};
+    v1 = 0;
+    auto j = f();  // j == 1;
+}
+```
+#### 指定lambda的返回类型
+一般情况下，如果一个lambda包含return之外的任何语句，则编译器认为其返回void。此时需要显示的指明返回类型。如：
+```C++
+transform(vi.begin(), vi.end(), vi.begin(),
+          [](int i){return i < 0 ? -i : i;});
+
+//error！！！lambda的函数体包含了两条语句，因此返回类型会推断为void
+transform(vi.begin(), vi.end(), vi.begin(),
+          [](int i){if(i<0) return -i; else return i;});
+
+//需要显式指明返回类型
+transform(vi.begin(), vi.end(), vi.begin(),
+          [](int i)->int{if(i<0) return -i; else return i;});
+```
+### 参数绑定
+对于只接受一个一元谓词的函数，如果不用lambda表达式，而调用的函数有需要引用其他参量的时候，需要参数绑定。
+
+#### 标准库bind函数
+bind定义在functional头文件中，调用的一般形式为`auto newCallable = bind(callable, arg_list);` 其中arg_list中的参数可能包含_n的名字，n是一个整数，表示占位符。比如_1表示newCallable的第一个参数，_2表示第二个，以此类推。例如：
+```C++
+bool check_size(const string &s, string::size_type sz) {
+    return s.size() >= sz;
+}
+auto check6 = bind(check_size, _1, 6);  
+bool b1 = check6(s);    //check6(s)会调用check_size(s, 6)
+
+//绑定之后可以使用find_if
+auto wc = find_if(words.begin(), words.end(), 
+            bind(check_size, _1, sz));
+```
+其中名字_n都定义在一个名为`placeholders`的命名空间中，利用`using namespace std::placeholders;`即可直接用这些占位符。
+
+对于bind的参数，根据占位符的写法分配，例如：
+```C++
+auto g = bind(f, a, b, _2, c, _1);
+g(x, y);  //is equal to f(a, b, y, c, x);
+```
+一般情况下，bind的那些不是占位符的参数被拷贝到bind返回的可调用对象中。如果想要对这些参数进行修改，必须使用ref函数/cref函数，例如
+```C++
+for_each(words.begin(), words.end(), 
+        [&os, c](const string &s) {os << s << c;});
+
+//下述语句等价于上述语句
+for_each(words.begin(), words.end(),
+        bind(print, ref(os), _1, ' '));
+//os必须用ref来修饰，不然bind会创造其一个拷贝，但IO对象不允许拷贝
+```
+### 插入迭代器
+||插入迭代器操作|
+-|-
+*it = t | 在it指定大的当前位置插入t。根据it绑定的容器选择调用push_back或者push_front
+*it,++it,it++ | 操作均存在，但不会改变it，每个操作都返回it
+
+插入器的三种类型：
++ back_inserter,创建一个使用push_back的迭代器
++ front_inserter， 创建一个使用push_front的迭代器
++ inserter,chuangjiianyige使用onsert的迭代器，该函数接受第二个参数，该参数必须是指向给定容器的迭代器。元素将被插入到给定迭代器所表示的元素之前
+
+例如：
+```C++
+auto it = inserter(c, iter);
+*it = val;
+//等价于
+it = c.insert(it, val);  //it指向新加入的元素
+++it;   //递增it让它指向原来的元素
+
+list<int> lst = {1,2,3,4};
+list<int> lst2, lst3;
+copy(lst.cbegin(), lst.cend(), front_inserter(lst2));  //lst2包含4,3,2,1
+copy(lst.cbegin(), lst.cend(), inserter(lst3, lst3.begin())); //lst3包含1,2,3,4
+```
