@@ -2128,3 +2128,148 @@ lst.unique()<br>lst.unique(pred) | 对list去重
 + 可读写
 + 多遍扫描
 + 支持全部迭代器运算
+
+## chapter11 关联容器
+关联容器主要有map和set两种，从而引申有multimap，multiset，unordered_map,unordered_set,unordered_multiset和unordered_multimap
+
+### 关键字类型的自定义比较
+某个类型如果定义了严格弱序的\<运算符,那么它可以用作关键字类型。对于set，还可以使用以下方式：
+```C++
+bool compareIsbn(const Sales_data &lhs, const Sales_date &rhs) {
+    return lhs.isbn() < rhs.isbn();
+}
+
+/**
+ * 为了使用自定义的操作，定义multiset的时候必须提供两个类型：关键字类型和比较操作函数指针
+ * 定义此类型的对象时，提供对象名后()跟着对应的函数地址
+**/
+multiset<Sales_data, decltype(compareIsbn)*>
+        bookstore(compareIsbn);
+```
+### pair类型
+pair的数据成员是public的，有first和second两个成员分别来访问。
+||pair上的操作|
+- | -
+pair<T1, T2> p; | p是一个pair，T1和T2成员进行值初始化
+pair<T1, T2> p(v1, v2); | p用(v1, v2)来初始化
+pair<T1, T2>p = {v1, v2}; | 等价为p(v1, v2)
+make_pair(v1, v2) | 返回v1和v2初始化的pair，类型由v1和v2推断
+p.first/p.second | 返回p的名为first/second的公有数据成员
+p1 *relop* p2 | 根据关系运算符字典定义。先判断first大小，如果相同再根据second大小进行比较
+p1 == p2<br>p1 != p2 | 当first和second分别相等的时候，pair相等。利用 == 来判断相等性
+
+使用举例：
+```C++
+pair<string, int>
+process(vector<string> &v) {
+    if(!v.empty())
+        return {v.back(), v.back().size()}; //列表初始化
+    else
+        return pair<string, int>();     //隐式构造返回值
+}
+```
+### 关联容器操作
+||关联容器额外的类型别名|
+- | -
+key_type | 此容器类型的关键字类型
+mapped_type | 每个关键字关联的类型，只适用于map
+value_type | 对于set，和key_type相同，对于map为pair<const key_type, mapped_type>
+
+用法举例：
+```C++
+set<string>::value_type v1;     //v1 is a string
+set<string>::key_type v2;       //v2 is a string
+map<string, int>::value_type v3;//v3 is a pair<const string, int>
+map<string, int>::key_type v4;  //v4 is a string
+map<string, int>::mapped_type v5; //v5 is a int
+```
+### 关联容器迭代器
+解引用一个关联容器迭代器的时候，类型为value_type，对map是pair类型，其first成员保存的关键字是const类型的。
+
+对于set，其迭代器是const的。即set中的关键字是只读的，不能更改
+
+### 添加元素
+set用insert添加元素，有两种写法，如下：
+```C++
+vector<int> ivec = {2, 4, 6, 8, 2, 4, 6, 8};
+set<int> set2;
+set2.insert(ivec.begin(), ivec.end());
+set2.insert({1, 3, 5, 7, 1, 3, 5, 7});
+```
+对map进行insert的时候，有以下四种方法：
+```C++
+word_count.insert({word, 1});
+word_count.insert(make_pair{word, 1});
+word_count.insert(pair<string, int>(word, 1));
+word_count.insert(map<string, int>::value_type(word, 1));
+```
+关联容器的insert可以是一个对象，一个迭代器范围，一组{}的内容，也可以用emplace。
+
+对于insert的返回值，如果是不含重复关键字的容器，返回一组pair，first是一个迭代器，指向关键字元素(value_type)，second指向bool，false表示容器中已有该元素，true表示插入成功。但对于multiset和multimap会返回一个指向新元素的迭代器。例如：
+```C++
+//统计每个单词在输入中出现次数的一种繁琐的方法
+map<string, size_t> word_count;
+string word;
+while (cin >> word) {
+    auto ret = word.insert({word, 1});
+    if (!auto->second)
+        ++ret.first->second;
+}
+```
+### 删除元素
+||关联容器删除元素操作|
+- | -
+c.erase(k) | 从c中删除关键字为k的元素，返回删除的元素数量
+c.erase(p) | 从c中删除迭代器指向的元素，返回p指向元素之后元素的迭代器。p不能使end()
+c,erase(b, e) | 删除b，e区间范围的元素，返回e
+
+### map的下标操作
+此类操作一般比较熟悉，需要注意的一点是，map下标操作返回的类型是mapped_type,而迭代器解引用返回的是value_type
+
+### 关联容器查找元素
+||在关联容器中查找元素的操作|
+- | -
+| |lower_bound和upper_bound不适用于无序容器
+| |下标和at只能用于非const的map和unordered_map
+c.find(k) | 返回一个迭代器，指向第一个关键字为k的元素。k不存在则返回尾后迭代器
+c.count(k) | 返回关键字k的元素数量
+c.lower_bound(k) | 返回一个迭代器，指向第一个关键字不小于k的元素
+c.upper_bound(k) | 返回一个迭代器，指向第一个关键字大于k的元素
+c.equal_bound(k) | 返回一个pair，表示关键字等于k的元素范围。如果k不存在，pair两个成员为end
+
+lower_bound和upper_bound的一种用法：
+```C++
+//authors is a multimap
+for (auto beg = authors.lower_bound(search_item),
+          end = authors.upper_bound(search_item);
+    beg != end; ++beg)
+    cout << beg->second << endl;
+
+//上面循环的一种等价写法
+for (auto pos = authors.equal_range(search_item);
+     pos.first != pos.second; ++pos.first)
+    cout << pos.first->second << endl;
+```
+如果关键字不在容器中，lower_bound会返回关键字的第一个安全插入点。
+
+### 无序容器
+无序容器是用hash实现的，由一组桶来映射元素，hash_value相同的元素保存在相同的桶中。
+||无序容器管理操作|
+- | -
+**桶接口** |
+c.bucket_count() | 正在使用的桶数目
+c.max_bucket_count() | 容器可以容纳的最多的桶数目
+c.bucket_size(n) | 第n个桶中有多少个元素
+c.bucket(k) | 关键字k在哪个桶中
+**桶迭代** |
+local_iterator | 用来访问桶中元素的迭代器类型
+const_local_iterator | const版本迭代器
+c.begin(n), c.end(n) | 桶n的首尾迭代器
+c.cbegin(n), c.cend(n) | 桶n的首尾迭代器，类型为const_local_iterator
+**哈希策略** |
+c.load_factor() | 每个桶的平均元素数量，float
+c.max_load_factor() | c试图维护的平均桶大小，float
+c.rehash(n) | 重组存储，bucket_count >= n且满足load_factor要求
+c.reserve(n) | 重组存储，使得c可以保存n个元素且不必rehash
+
+利用无序容器装填自定义类型的时候，必须提供自己的hash版本。详细内容见16章。
