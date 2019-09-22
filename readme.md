@@ -2036,3 +2036,95 @@ list<int> lst2, lst3;
 copy(lst.cbegin(), lst.cend(), front_inserter(lst2));  //lst2包含4,3,2,1
 copy(lst.cbegin(), lst.cend(), inserter(lst3, lst3.begin())); //lst3包含1,2,3,4
 ```
+### iostream迭代器
+标准库定义了istream_iterator和ostream_iterator一组迭代器对iostream流进行操作
+
+#### istream_iterator操作
+||istream_iterator操作|
+- | -
+istream_iterator<T> in(is); | in从输入流is读取类型为T的值
+istream_iterator<T> end; | 读取类型为T的istream_itreator迭代器，表示尾后位置
+in1 == in2<br>in1 != in2 | in1和in2必须读取相同类型。如果它们都是尾后迭代器或者绑定到相同输入，则相等
+*in | 返回从流中读取的数据
+in->mem | 等同于(*in).mem
+++in, in++ | 使用元素类型定义的>>运算符从输入流中读取下一个值
+
+使用举例：
+```C++
+istream_iterator<int> in_inter(cin);    //read int from cin
+istream_iterator<int> eof;              //istream尾后迭代器
+while (in_iter != eof)
+    vec.push_back(*in_inter++);
+//or
+vector<int> vec(in_inter, eof);         //construct vector using iterator
+```
+
+#### ostream_iterator操作
+||ostream_iterator操作|
+- | -
+ostream_iterator<T> out(os); | out将类型为T的值os写到输出流os中
+ostream_iterator<T> out(os,d); | 写完os后都输出一个d，d要求是C语言类型的字符串
+out = val | 使用元素类型定义的<<运算符向输出流写入下一个值
+*out, ++out, out++ | 不做任何事情，返回out本身
+
+```C++
+ostream_iterator<int> out_iter(cout, " ");
+for (auto e : vec)
+    *out_iter++ = e;
+cout << endl;
+/*  *out_iter++ = e 
+can be write as
+    out = e;
+but recommon the first style
+*/
+
+copy(vec.cbegin(), vec.cend(), out_iter);
+cout << endl;
+```
+
+### 反向迭代器
+rbegin, rend, crbegin, crend为反向迭代器，利用反响迭代器可以实现sort的逆序排序
+
+反响迭代器使用.base()操作后可以变回普通迭代器，位置会对应往前移一格。
+
+### 链表特有的操作
+||list和forward_list成员函数版本的算法|
+- | -
+此类操作都返回void |
+lst.merge(lst2)<br>lst.merge(lst2, comp) | merge操作，第二个版本利用comp进行比较
+lst.remove()<br>lst.remove_if(pred) | 等价于erase操作
+lst.reverse() | 反转lst中元素的顺序
+lst.sort()<br>lst.sort(cmp) | 对list进行排序
+lst.unique()<br>lst.unique(pred) | 对list去重
+
+对lsit的insert操作定义了`lst.splice()和flst.splice_after()`操作
+
+链表的特有操作会改变容器
+
+### 5种类型的迭代器
+1.Input Iterator用于读取序列中的元素，支持以下操作
++ 比较两个迭代器的相等和不相等运算符(==和!=)
++ 用于推进迭代器的后置和前置递增运算(++)
++ 用于读取元素的接应用运算符(*)，解引用只会出现在赋值运算符右侧（即不可修改，只可读)
++ 箭头运算符(->)
++ 只能单次扫描
+
+2.Output Iterator只写不读的，支持以下操作
++ ++
++ 解引用(*)，只会出现在赋值运算符的左侧，向其赋值则为写入元素值
++ 只能单次扫描
+
+3.forward iterator
++ 可读写
++ 多遍扫描
++ 只能递增
+
+4.bidirectional iterator
++ 可读写
++ 多遍扫描
++ 可递增，可递减
+
+5.random-access iterator
++ 可读写
++ 多遍扫描
++ 支持全部迭代器运算
