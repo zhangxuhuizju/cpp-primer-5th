@@ -1,0 +1,1718 @@
+Only in NS3/bake/source/ns-3.29/src/antenna/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/antenna/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/aodv/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/aodv/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/applications/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/applications/bindings: modulegen_customizations.pyc
+Only in NS3/bake/source/ns-3.29/src/applications/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/bridge/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/bridge/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/buildings/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/buildings/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/config-store/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/config-store/bindings: modulegen_customizations.pyc
+Only in NS3/bake/source/ns-3.29/src/config-store/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/core/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/core/bindings: modulegen_customizations.pyc
+Only in NS3/bake/source/ns-3.29/src/core/bindings: modulegen__gcc_LP64.pyc
+/*****************************************************************************************************/
+Only in NS3/bake/source/ns-3.29/src/core/model: clock.cc
+Only in NS3/bake/source/ns-3.29/src/core/model: clock.h
+Only in NS3/bake/source/ns-3.29/src/core/model: clock-monotonic-increasing.cc
+Only in NS3/bake/source/ns-3.29/src/core/model: clock-monotonic-increasing.h
+Only in NS3/bake/source/ns-3.29/src/core/model: clock-offset-generator.cc
+Only in NS3/bake/source/ns-3.29/src/core/model: clock-offset-generator.h
+Only in NS3/bake/source/ns-3.29/src/core/model: clock-perfect.cc
+Only in NS3/bake/source/ns-3.29/src/core/model: clock-perfect.h
+Only in NS3/bake/source/ns-3.29/src/core/model: clock-skew.cc
+Only in NS3/bake/source/ns-3.29/src/core/model: clock-skew.h
+/*****************************************************************************************************/
+diff -a -r ns-allinone-3.29/ns-3.29/src/core/model/default-simulator-impl.cc NS3/bake/source/ns-3.29/src/core/model/default-simulator-impl.cc
+145c145
+<   NS_LOG_LOGIC ("handle " << next.key.m_ts);
+---
+>   NS_LOG_LOGIC ("handle Timestamp=" << next.key.m_ts);
+147a148
+>   NS_LOG_UNCOND ("Setting m_currentContext=" << m_currentContext);
+148a150
+>   NS_LOG_UNCOND ("m_currentUid=" << m_currentUid);
+235a238,239
+>   NS_ASSERT (tAbsolute.IsPositive ());
+>   NS_ASSERT (tAbsolute >= TimeStep (m_currentTs));
+247c251
+< void
+---
+> EventId
+250a255
+>   NS_ASSERT_MSG (SystemThread::Equals (m_main), "Simulator::ScheduleNow Thread-unsafe invocation!");
+251a257
+> # if 0
+253a260
+> # endif
+254a262,264
+> 
+>       NS_ASSERT (tAbsolute.IsPositive ());
+>       NS_ASSERT (tAbsolute >= TimeStep (m_currentTs));
+262a273,275
+>       EventId toto = EventId(event, ev.key.m_ts, ev.key.m_context, ev.key.m_uid);
+>       return toto;
+> # if 0
+276a290
+> #endif
+284c298,299
+<   Scheduler::Event ev;
+---
+>   return Schedule(Time(0), event);
+>   /*Scheduler::Event ev;
+292c307
+<   return EventId (event, ev.key.m_ts, ev.key.m_context, ev.key.m_uid);
+---
+>   return EventId (event, ev.key.m_ts, ev.key.m_context, ev.key.m_uid);*/
+diff -a -r ns-allinone-3.29/ns-3.29/src/core/model/default-simulator-impl.h NS3/bake/source/ns-3.29/src/core/model/default-simulator-impl.h
+67c67
+<   virtual void ScheduleWithContext (uint32_t context, const Time &delay, EventImpl *event);
+---
+>   virtual EventId ScheduleWithContext (uint32_t context, const Time &delay, EventImpl *event);
+diff -a -r ns-allinone-3.29/ns-3.29/src/core/model/event-id.cc NS3/bake/source/ns-3.29/src/core/model/event-id.cc
+23a24
+> #include "ns3/node.h"
+39c40,41
+<     m_uid (0)
+---
+>     m_uid (0),
+>     m_node (0)
+43a46,50
+> EventId::~EventId()
+> {
+> 
+> }
+> 
+48c55,56
+<     m_uid (uid)
+---
+>     m_uid (uid),
+>     m_node (0)
+51a60
+> 
+52a62
+> 
+55a66,69
+>   if (m_node)
+>   {
+>      return m_node->Cancel (*this);
+>   }
+61a76,79
+>   if (m_node)
+>   {
+>       return m_node->IsExpired (*this);
+>   }
+diff -a -r ns-allinone-3.29/ns-3.29/src/core/model/event-id.h NS3/bake/source/ns-3.29/src/core/model/event-id.h
+34a35
+> class Node;
+56a58
+>   ~EventId ();
+98a101,102
+> 
+>   Node* m_node;     /**< node that owns this event. Might be null if pure-simulator event */
+diff -a -r ns-allinone-3.29/ns-3.29/src/core/model/log-macros-enabled.h NS3/bake/source/ns-3.29/src/core/model/log-macros-enabled.h
+55a56,67
+> #define NS_LOG_APPEND_NODE_TIME_PREFIX                          \
+>   if (g_log.IsEnabled (ns3::LOG_PREFIX_NODE))                   \
+>     {                                                           \
+>           std::clog << " ";                                     \
+>     }
+> 
+> /**
+>  * \ingroup logging
+>  * Append the simulation node id to a log message.
+>  * \internal
+>  * Logging implementation macro; should not be called directly.
+>  */
+diff -a -r ns-allinone-3.29/ns-3.29/src/core/model/nstime.h NS3/bake/source/ns-3.29/src/core/model/nstime.h
+27a28
+> #include "ns3/log.h"
+120c121
+<     LAST = 10
+---
+>     LAST
+699,700c700,707
+<   friend Time operator * (const Time & lhs, const int64_t & rhs);
+<   friend Time operator * (const int64_t & lhs, const Time & rhs);
+---
+> //  friend Time operator * (const Time & lhs, const int64_t & rhs);
+> //  friend Time operator * (const int64_t & lhs, const Time & rhs);
+>   template <typename T>
+>   friend Time operator * (const Time & lhs, const T & rhs);
+>   template <typename T>
+>   friend Time operator * (const T & lhs, const Time & rhs);
+> 
+> 
+702c709,711
+<   friend Time operator / (const Time & lhs, const int64_t & rhs);
+---
+> //  friend Time operator / (const Time & lhs, const int64_t & rhs);
+>   template<typename T>
+>   friend Time operator / (const Time & lhs, const T & rhs);
+847a857
+> template <typename T>
+849c859
+< operator * (const Time & lhs, const int64_t & rhs)
+---
+> operator * (const Time & lhs, const T & rhs)
+861a872
+> template <typename T>
+863c874
+< operator * (const int64_t & lhs, const Time & rhs)
+---
+> operator * (const T & lhs, const Time & rhs)
+888a900
+> template <typename T>
+890c902
+< operator / (const Time & lhs, const int64_t & rhs)
+---
+> operator / (const Time & lhs, const T & rhs)
+892a905
+>   NS_ASSERT_MSG ( ((res.m_data / rhs) != 0) || (res.m_data == 0), "Resolution too low for this computation");
+diff -a -r ns-allinone-3.29/ns-3.29/src/core/model/realtime-simulator-impl.cc NS3/bake/source/ns-3.29/src/core/model/realtime-simulator-impl.cc
+540c540
+< void
+---
+> EventId
+diff -a -r ns-allinone-3.29/ns-3.29/src/core/model/realtime-simulator-impl.h NS3/bake/source/ns-3.29/src/core/model/realtime-simulator-impl.h
+97c97
+<   virtual void ScheduleWithContext (uint32_t context, const Time &delay, EventImpl *event);
+---
+>   virtual EventId ScheduleWithContext (uint32_t context, const Time &delay, EventImpl *event);
+diff -a -r ns-allinone-3.29/ns-3.29/src/core/model/simulator.cc NS3/bake/source/ns-3.29/src/core/model/simulator.cc
+275c275
+< void
+---
+> EventId
+317c317
+< void
+---
+> EventId
+diff -a -r ns-allinone-3.29/ns-3.29/src/core/model/simulator.h NS3/bake/source/ns-3.29/src/core/model/simulator.h
+481c481
+<   static void ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj);
+---
+>   static EventId ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj);
+495c495
+<   static void ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1);
+---
+>   static EventId ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1);
+511c511
+<   static void ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1, T2 a2);
+---
+>   static EventId ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1, T2 a2);
+530c530
+<   static void ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1, T2 a2, T3 a3);
+---
+>   static EventId ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1, T2 a2, T3 a3);
+551c551
+<   static void ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1, T2 a2, T3 a3, T4 a4);
+---
+>   static EventId ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1, T2 a2, T3 a3, T4 a4);
+574c574
+<   static void ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, 
+---
+>   static EventId ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, 
+593c593
+<   static void ScheduleWithContext (uint32_t context, Time const &time, MEM mem_ptr, OBJ obj, 
+---
+>   static EventId ScheduleWithContext (uint32_t context, Time const &time, MEM mem_ptr, OBJ obj, 
+609c609
+<   static void ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(void));
+---
+>   static EventId ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(void));
+622c622
+<   static void ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1), T1 a1);
+---
+>   static EventId ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1), T1 a1);
+638c638
+<   static void ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1,U2), T1 a1, T2 a2);
+---
+>   static EventId ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1,U2), T1 a1, T2 a2);
+657c657
+<   static void ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1,U2,U3), T1 a1, T2 a2, T3 a3);
+---
+>   static EventId ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1,U2,U3), T1 a1, T2 a2, T3 a3);
+679c679
+<   static void ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1,U2,U3,U4), T1 a1, T2 a2, T3 a3, T4 a4);
+---
+>   static EventId ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1,U2,U3,U4), T1 a1, T2 a2, T3 a3, T4 a4);
+704c704
+<   static void ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1,U2,U3,U4,U5), T1 a1, T2 a2, T3 a3, T4 a4, T5 a5);
+---
+>   static EventId ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1,U2,U3,U4,U5), T1 a1, T2 a2, T3 a3, T4 a4, T5 a5);
+721c721
+<   static void ScheduleWithContext (uint32_t context, Time const &time, void (*f)(U1,U2,U3,U4,U5,U6), T1 a1, T2 a2, T3 a3, T4 a4, T5 a5, T6 a6);
+---
+>   static EventId ScheduleWithContext (uint32_t context, Time const &time, void (*f)(U1,U2,U3,U4,U5,U6), T1 a1, T2 a2, T3 a3, T4 a4, T5 a5, T6 a6);
+1297c1297
+<   static void ScheduleWithContext (uint32_t context, const Time &delay, EventImpl *event);
+---
+>   static EventId ScheduleWithContext (uint32_t context, const Time &delay, EventImpl *event);
+1475c1475
+< void Simulator::ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj)
+---
+> EventId Simulator::ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj)
+1477c1477
+<   ScheduleWithContext (context, delay, MakeEvent (mem_ptr, obj));
+---
+>   return ScheduleWithContext (context, delay, MakeEvent (mem_ptr, obj));
+1483c1483
+< void Simulator::ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1)
+---
+> EventId Simulator::ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1)
+1490c1490
+< void Simulator::ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1, T2 a2)
+---
+> EventId Simulator::ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1, T2 a2)
+1497c1497
+< void Simulator::ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1, T2 a2, T3 a3)
+---
+> EventId Simulator::ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1, T2 a2, T3 a3)
+1504c1504
+< void Simulator::ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1, T2 a2, T3 a3, T4 a4)
+---
+> EventId Simulator::ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj, T1 a1, T2 a2, T3 a3, T4 a4)
+1511c1511
+< void Simulator::ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj,
+---
+> EventId Simulator::ScheduleWithContext (uint32_t context, Time const &delay, MEM mem_ptr, OBJ obj,
+1519c1519
+< void Simulator::ScheduleWithContext (uint32_t context, Time const &time, MEM mem_ptr, OBJ obj,
+---
+> EventId Simulator::ScheduleWithContext (uint32_t context, Time const &time, MEM mem_ptr, OBJ obj,
+1527c1527
+< void Simulator::ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1), T1 a1)
+---
+> EventId Simulator::ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1), T1 a1)
+1534c1534
+< void Simulator::ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1,U2), T1 a1, T2 a2)
+---
+> EventId Simulator::ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1,U2), T1 a1, T2 a2)
+1541c1541
+< void Simulator::ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1,U2,U3), T1 a1, T2 a2, T3 a3)
+---
+> EventId Simulator::ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1,U2,U3), T1 a1, T2 a2, T3 a3)
+1548c1548
+< void Simulator::ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1,U2,U3,U4), T1 a1, T2 a2, T3 a3, T4 a4)
+---
+> EventId Simulator::ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1,U2,U3,U4), T1 a1, T2 a2, T3 a3, T4 a4)
+1555c1555
+< void Simulator::ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1,U2,U3,U4,U5), T1 a1, T2 a2, T3 a3, T4 a4, T5 a5)
+---
+> EventId Simulator::ScheduleWithContext (uint32_t context, Time const &delay, void (*f)(U1,U2,U3,U4,U5), T1 a1, T2 a2, T3 a3, T4 a4, T5 a5)
+1562c1562
+< void Simulator::ScheduleWithContext (uint32_t context, Time const &time, void (*f)(U1,U2,U3,U4,U5,U6), T1 a1, T2 a2, T3 a3, T4 a4, T5 a5, T6 a6)
+---
+> EventId Simulator::ScheduleWithContext (uint32_t context, Time const &time, void (*f)(U1,U2,U3,U4,U5,U6), T1 a1, T2 a2, T3 a3, T4 a4, T5 a5, T6 a6)
+diff -a -r ns-allinone-3.29/ns-3.29/src/core/model/simulator-impl.h NS3/bake/source/ns-3.29/src/core/model/simulator-impl.h
+69c69
+<   virtual void ScheduleWithContext (uint32_t context, const Time &delay, EventImpl *event) = 0;
+---
+>   virtual EventId ScheduleWithContext (uint32_t context, const Time &delay, EventImpl *event) = 0;
+diff -a -r ns-allinone-3.29/ns-3.29/src/core/model/type-id.cc NS3/bake/source/ns-3.29/src/core/model/type-id.cc
+1171a1172,1174
+> 
+>   NS_LOG_WARN ("Could not find source [" << name << "]. "
+>                << "Did you confound Attribute and TraceSource ?");
+
+Only in NS3/bake/source/ns-3.29/src/core/test: clock-test.cc
+
+
+diff -a -r ns-allinone-3.29/ns-3.29/src/core/test/time-test-suite.cc NS3/bake/source/ns-3.29/src/core/test/time-test-suite.cc
+232c232,263
+<     
+---
+> 
+> class TimeOperationsTestCase : public TestCase
+> {
+> public:
+>   TimeOperationsTestCase();
+> private:
+>   virtual void DoRun (void);
+> };
+> 
+> TimeOperationsTestCase::TimeOperationsTestCase() :
+>     TestCase("Operations (multiplication,division etc...) on time")
+> {
+> }
+> 
+> void
+> TimeOperationsTestCase::DoRun (void)
+> {
+> //  std::cout << std::endl;
+> //  std::cout << GetParent ()->GetName () << " InputOutput: " << GetName ()
+> //         << std::endl;
+>     for(int i=0; i < 40; ++i) {
+>         for(int j=35; j < 40; ++j) {
+>             Time ti(i);
+>             Time tj(j);
+> 
+>             NS_TEST_ASSERT_MSG_EQ( ti + tj, Time(i+j), "Time are not the same");
+>         }
+>     }
+> 
+>     NS_TEST_ASSERT_MSG_EQ(NanoSeconds(0)/1., 0, "Should be equal to 0");
+> }
+> 
+242c273
+<     AddTestCase (new TimeSimpleTestCase (), TestCase::QUICK);
+---
+>     AddTestCase (new TimeOperationsTestCase (), TestCase::QUICK);
+diff -a -r ns-allinone-3.29/ns-3.29/src/core/wscript NS3/bake/source/ns-3.29/src/core/wscript
+160a161,162
+>         'model/clock.cc',
+>         'model/clock-perfect.cc',
+221a224
+>         'test/clock-test.cc',
+245a249,250
+>         'model/clock.h',
+>         'model/clock-perfect.h',
+Only in NS3/bake/source/ns-3.29/src/csma/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/csma/bindings: modulegen_customizations.pyc
+diff -a -r ns-allinone-3.29/ns-3.29/src/csma/bindings/modulegen__gcc_ILP32.py NS3/bake/source/ns-3.29/src/csma/bindings/modulegen__gcc_ILP32.py
+1382c1382
+<                    deprecated=True, is_const=True)
+---
+>                    is_const=True)
+1844c1844
+<                    deprecated=True, is_const=True)
+---
+>                    is_const=True)
+3046,3047c3046
+<                    [param('std::string', 'name'), param('std::string', 'help'), param('ns3::Ptr< ns3::TraceSourceAccessor const >', 'accessor')], 
+<                    deprecated=True)
+---
+>                    [param('std::string', 'name'), param('std::string', 'help'), param('ns3::Ptr< ns3::TraceSourceAccessor const >', 'accessor')])
+4631c4630
+<     ## csma-channel.h (module 'csma'): bool ns3::CsmaChannel::TransmitEnd() [member function]
+---
+>     ## csma-channel.h (module 'csma'): bool ns3::CsmaChannel::TransmitEnd(uint32_t deviceId) [member function]
+4634,4635c4633,4634
+<                    [])
+<     ## csma-channel.h (module 'csma'): void ns3::CsmaChannel::PropagationCompleteEvent() [member function]
+---
+>                    [param('uint32_t', 'deviceId')])
+>     ## csma-channel.h (module 'csma'): void ns3::CsmaChannel::PropagationCompleteEvent(uint32_t deviceId) [member function]
+4638c4637
+<                    [])
+---
+>                    [param('uint32_t', 'deviceId')])
+4643c4642
+<     ## csma-channel.h (module 'csma'): ns3::WireState ns3::CsmaChannel::GetState() [member function]
+---
+>     ## csma-channel.h (module 'csma'): ns3::WireState ns3::CsmaChannel::GetState(uint32_t deviceId) [member function]
+4646,4647c4645,4646
+<                    [])
+<     ## csma-channel.h (module 'csma'): bool ns3::CsmaChannel::IsBusy() [member function]
+---
+>                    [param('uint32_t', 'deviceId')])
+>     ## csma-channel.h (module 'csma'): bool ns3::CsmaChannel::IsBusy(uint32_t deviceId) [member function]
+4650c4649
+<                    [])
+---
+>                    [param('uint32_t', 'deviceId')])
+4654a4654,4658
+>     ## csma-channel.h (module 'csma'): bool ns3::CsmaChannel::IsFullDuplex() const [member function]
+>     cls.add_method('IsFullDuplex', 
+>                    'bool', 
+>                    [], 
+>                    is_const=True)
+6030c6034
+<                    deprecated=True, is_const=True)
+---
+>                    is_const=True)
+diff -a -r ns-allinone-3.29/ns-3.29/src/csma/bindings/modulegen__gcc_LP64.py NS3/bake/source/ns-3.29/src/csma/bindings/modulegen__gcc_LP64.py
+1382c1382
+<                    deprecated=True, is_const=True)
+---
+>                    is_const=True)
+1844c1844
+<                    deprecated=True, is_const=True)
+---
+>                    is_const=True)
+3046,3047c3046
+<                    [param('std::string', 'name'), param('std::string', 'help'), param('ns3::Ptr< ns3::TraceSourceAccessor const >', 'accessor')], 
+<                    deprecated=True)
+---
+>                    [param('std::string', 'name'), param('std::string', 'help'), param('ns3::Ptr< ns3::TraceSourceAccessor const >', 'accessor')])
+4631c4630
+<     ## csma-channel.h (module 'csma'): bool ns3::CsmaChannel::TransmitEnd() [member function]
+---
+>     ## csma-channel.h (module 'csma'): bool ns3::CsmaChannel::TransmitEnd(uint32_t deviceId) [member function]
+4634,4635c4633,4634
+<                    [])
+<     ## csma-channel.h (module 'csma'): void ns3::CsmaChannel::PropagationCompleteEvent() [member function]
+---
+>                    [param('uint32_t', 'deviceId')])
+>     ## csma-channel.h (module 'csma'): void ns3::CsmaChannel::PropagationCompleteEvent(uint32_t deviceId) [member function]
+4638c4637
+<                    [])
+---
+>                    [param('uint32_t', 'deviceId')])
+4643c4642
+<     ## csma-channel.h (module 'csma'): ns3::WireState ns3::CsmaChannel::GetState() [member function]
+---
+>     ## csma-channel.h (module 'csma'): ns3::WireState ns3::CsmaChannel::GetState(uint32_t deviceId) [member function]
+4646,4647c4645,4646
+<                    [])
+<     ## csma-channel.h (module 'csma'): bool ns3::CsmaChannel::IsBusy() [member function]
+---
+>                    [param('uint32_t', 'deviceId')])
+>     ## csma-channel.h (module 'csma'): bool ns3::CsmaChannel::IsBusy(uint32_t deviceId) [member function]
+4650c4649
+<                    [])
+---
+>                    [param('uint32_t', 'deviceId')])
+4654a4654,4658
+>     ## csma-channel.h (module 'csma'): bool ns3::CsmaChannel::IsFullDuplex() const [member function]
+>     cls.add_method('IsFullDuplex', 
+>                    'bool', 
+>                    [], 
+>                    is_const=True)
+6030c6034
+<                    deprecated=True, is_const=True)
+---
+>                    is_const=True)
+Only in NS3/bake/source/ns-3.29/src/csma/bindings: modulegen__gcc_LP64.pyc
+diff -a -r ns-allinone-3.29/ns-3.29/src/csma/examples/csma-multicast.cc NS3/bake/source/ns-3.29/src/csma/examples/csma-multicast.cc
+75a76
+>   csma.SetChannelAttribute ("FullDuplex", BooleanValue (true));
+diff -a -r ns-allinone-3.29/ns-3.29/src/csma/helper/csma-helper.cc NS3/bake/source/ns-3.29/src/csma/helper/csma-helper.cc
+27a28
+> #include "ns3/multi-queue.h"
+309c310
+<   Ptr<Queue<Packet> > queue = m_queueFactory.Create<Queue<Packet> > ();
+---
+>   Ptr<Queue<Packet> > queue = m_queueFactory.Create<MultiQueue> ();
+diff -a -r ns-allinone-3.29/ns-3.29/src/csma/model/csma-channel.cc NS3/bake/source/ns-3.29/src/csma/model/csma-channel.cc
+48a49,53
+>     .AddAttribute ("FullDuplex", "Whether the channel is full duplex",
+>                    TypeId::ATTR_CONSTRUCT,
+>                    BooleanValue (false),
+>                    MakeBooleanAccessor (&CsmaChannel::m_fullDuplex),
+>                    MakeBooleanChecker ())
+58d62
+<   m_state = IDLE;
+73a78,85
+>   // For full-duplex links we can only attach two devices to a channel
+>   // since there is no backoff
+>   if (m_fullDuplex && m_deviceList.size () > 2)
+>     {
+>       NS_LOG_DEBUG ("Falling back to half-duplex");
+>       m_fullDuplex = false;
+>     }
+> 
+76a89,90
+>   SetState (m_deviceList.size () - 1, IDLE);
+>   SetCurrentSrc (m_deviceList.size () - 1, m_deviceList.size () - 1);
+110c124
+<   if (deviceId < m_deviceList.size ())
+---
+>   if (deviceId >= m_deviceList.size ())
+141c155
+<       if ((m_state == TRANSMITTING) && (m_currentSrc == deviceId))
+---
+>       if ((GetState (deviceId) == TRANSMITTING) && (GetCurrentSrc (deviceId) == deviceId))
+178c192
+<   if (m_state != IDLE)
+---
+>   if (GetState (srcId) != IDLE)
+191,193c205,207
+<   m_currentPkt = p->Copy ();
+<   m_currentSrc = srcId;
+<   m_state = TRANSMITTING;
+---
+>   SetCurrentPkt (srcId, p);
+>   SetCurrentSrc (srcId, srcId);
+>   SetState (srcId, TRANSMITTING);
+204c218,224
+< CsmaChannel::TransmitEnd ()
+---
+> CsmaChannel::IsFullDuplex (void) const
+> {
+>   return m_fullDuplex;
+> }
+> 
+> bool
+> CsmaChannel::TransmitEnd (uint32_t srcId)
+206,207c226,227
+<   NS_LOG_FUNCTION (this << m_currentPkt << m_currentSrc);
+<   NS_LOG_INFO ("UID is " << m_currentPkt->GetUid () << ")");
+---
+>   NS_LOG_FUNCTION (this << GetCurrentPkt (srcId) << GetCurrentSrc (srcId));
+>   NS_LOG_INFO ("UID is " << GetCurrentPkt (srcId)->GetUid () << ")");
+209,210c229,230
+<   NS_ASSERT (m_state == TRANSMITTING);
+<   m_state = PROPAGATING;
+---
+>   NS_ASSERT (GetState (srcId) == TRANSMITTING);
+>   SetState (srcId, PROPAGATING);
+214c234
+<   if (!IsActive (m_currentSrc))
+---
+>   if (!IsActive (GetCurrentSrc (srcId)))
+229c249,250
+<       if (it->IsActive ())
+---
+>       // In full duplex mode, don't deliver to sender
+>       if (!m_fullDuplex || (devId != GetCurrentSrc (srcId)))
+231,235c252,259
+<           // schedule reception events
+<           Simulator::ScheduleWithContext (it->devicePtr->GetNode ()->GetId (),
+<                                           m_delay,
+<                                           &CsmaNetDevice::Receive, it->devicePtr,
+<                                           m_currentPkt->Copy (), m_deviceList[m_currentSrc].devicePtr);
+---
+>           if (it->IsActive ())
+>             {
+>               // schedule reception events
+>               Simulator::ScheduleWithContext (it->devicePtr->GetNode ()->GetId (),
+>                                               m_delay,
+>                                               &CsmaNetDevice::Receive, it->devicePtr,
+>                                               GetCurrentPkt (srcId)->Copy (), m_deviceList[GetCurrentSrc (srcId)].devicePtr);
+>             }
+241,242c265,266
+<   Simulator::Schedule (m_delay, &CsmaChannel::PropagationCompleteEvent,
+<                        this);
+---
+>   Simulator::Schedule (IsFullDuplex () ? Time (0) : m_delay,
+>                        &CsmaChannel::PropagationCompleteEvent, this, srcId);
+247c271
+< CsmaChannel::PropagationCompleteEvent ()
+---
+> CsmaChannel::PropagationCompleteEvent (uint32_t deviceId)
+249,250c273,274
+<   NS_LOG_FUNCTION (this << m_currentPkt);
+<   NS_LOG_INFO ("UID is " << m_currentPkt->GetUid () << ")");
+---
+>   NS_LOG_FUNCTION (this << GetCurrentPkt (deviceId));
+>   NS_LOG_INFO ("UID is " << GetCurrentPkt (deviceId)->GetUid () << ")");
+252,253c276,277
+<   NS_ASSERT (m_state == PROPAGATING);
+<   m_state = IDLE;
+---
+>   NS_ASSERT (GetState (deviceId) == PROPAGATING);
+>   SetState (deviceId, IDLE);
+307c331
+< CsmaChannel::IsBusy (void)
+---
+> CsmaChannel::IsBusy (uint32_t deviceId)
+309c333
+<   if (m_state == IDLE) 
+---
+>   if (GetState (deviceId) == IDLE)
+332c356
+< CsmaChannel::GetState (void)
+---
+> CsmaChannel::GetState (uint32_t deviceId)
+334c358
+<   return m_state;
+---
+>   return m_state[m_fullDuplex ? deviceId : 0];
+340a365,394
+> }
+> 
+> Ptr<Packet>
+> CsmaChannel::GetCurrentPkt (uint32_t deviceId)
+> {
+>   return m_currentPkt[m_fullDuplex ? deviceId : 0];
+> }
+> 
+> void
+> CsmaChannel::SetCurrentPkt (uint32_t deviceId, Ptr<const Packet> pkt)
+> {
+>   m_currentPkt[m_fullDuplex ? deviceId : 0] = pkt->Copy ();
+> }
+> 
+> uint32_t
+> CsmaChannel::GetCurrentSrc (uint32_t deviceId)
+> {
+>   return m_currentSrc[m_fullDuplex ? deviceId : 0];
+> }
+> 
+> void
+> CsmaChannel::SetCurrentSrc (uint32_t deviceId, uint32_t transmitterId)
+> {
+>   m_currentSrc[m_fullDuplex ? deviceId : 0] = transmitterId;
+> }
+> 
+> void
+> CsmaChannel::SetState (uint32_t deviceId, WireState state)
+> {
+>   m_state[m_fullDuplex ? deviceId : 0] = state;
+diff -a -r ns-allinone-3.29/ns-3.29/src/csma/model/csma-channel.h NS3/bake/source/ns-3.29/src/csma/model/csma-channel.h
+27a28
+> #include "ns3/boolean.h"
+203c204
+<   bool TransmitEnd ();
+---
+>   bool TransmitEnd (uint32_t deviceId);
+212c213
+<   void PropagationCompleteEvent ();
+---
+>   void PropagationCompleteEvent (uint32_t deviceId);
+227c228
+<   WireState GetState ();
+---
+>   WireState GetState (uint32_t deviceId);
+236c237
+<   bool IsBusy ();
+---
+>   bool IsBusy (uint32_t deviceId);
+249a251,258
+>    * \brief Indicates if channel is operating in full duplex mode.
+>    *
+>    * \return Returns true if channel is in full duplex mode, false if in
+>    * half duplex mode.
+>    */
+>   bool IsFullDuplex (void) const;
+> 
+>   /**
+321a331,335
+>    * Whether the channel is in full duplex mode
+>    */
+>   bool          m_fullDuplex;
+> 
+>   /**
+339c353
+<   Ptr<Packet> m_currentPkt;
+---
+>   Ptr<Packet> m_currentPkt[2];
+346c360
+<   uint32_t                            m_currentSrc;
+---
+>   uint32_t m_currentSrc[2];
+351c365,418
+<   WireState          m_state;
+---
+>   WireState m_state[2];
+> 
+>   /**
+>    * \brief Gets current packet
+>    *
+>    * \param deviceId The ID that was assigned to the net device when
+>    * it was attached to the channel.
+>    *
+>    * \return Device Id of the source that is currently transmitting on the
+>    * channel. Or last source to have transmitted a packet on the
+>    * channel, if the channel is currently not busy.
+>    */
+>   Ptr<Packet> GetCurrentPkt (uint32_t deviceId);
+> 
+>   /**
+>    * \brief Sets the current packet
+>    *
+>    * \param deviceId The ID that was assigned to the net device when
+>    * it was attached to the channel.
+>    * \param The Packet that is current being transmitted by deviceId (or last
+>    * packet to have been transmitted on the channel if the channel is free.)
+>    */
+>   void SetCurrentPkt (uint32_t deviceId, Ptr<const Packet> pkt);
+> 
+>   /**
+>    * \brief Gets current transmitter
+>    *
+>    * \param deviceId The ID that was assigned to the net device when
+>    * it was attached to the channel.
+>    *
+>    * \return Device Id of the source that is currently transmitting on the
+>    * channel. Or last source to have transmitted a packet on the
+>    * channel, if the channel is currently not busy.
+>    */
+>   uint32_t GetCurrentSrc (uint32_t deviceId);
+> 
+>   /**
+>    * \brief Sets the current transmitter
+>    *
+>    * \param deviceId The ID that was assigned to the net device when
+>    * it was attached to the channel.
+>    * \param transmitterId The ID of the transmitting device.
+>    */
+>   void SetCurrentSrc (uint32_t deviceId, uint32_t transmitterId);
+> 
+>   /**
+>    * \brief Sets the state of the channel
+>    *
+>    * \param deviceId The ID that was assigned to the net device when
+>    * it was attached to the channel.
+>    * \param state The new channel state.
+>    */
+>   void SetState (uint32_t deviceId, WireState state);
+> 
+diff -a -r ns-allinone-3.29/ns-3.29/src/csma/model/csma-net-device.cc NS3/bake/source/ns-3.29/src/csma/model/csma-net-device.cc
+24a25
+> #include "ns3/vlan-header.h"
+65c66,68
+<                                     LLC, "Llc"))
+---
+>                                     LLC, "Llc",
+>                                     IQDATA, "Iqdata",
+>                                     BG, "Bg"))
+349c352
+<   EthernetHeader header (false);
+---
+>   VlanHeader header;
+351a355
+>   header.SetPriority(0);
+421a426,436
+>     case IQDATA:
+>       {
+>          lengthType = 33024;
+>          header.SetPriority(7);
+>       }
+>       break;
+>     case BG:
+>       {
+>          lengthType = 33024;
+>       }
+>       break;
+487a503
+>   NS_LOG_LOGIC ("Device ID = " << m_deviceId);
+512c528
+<   if (m_channel->GetState () != IDLE)
+---
+>   if (m_channel->GetState (m_deviceId) != IDLE)
+518d533
+<       m_txMachineState = BACKOFF;
+520c535
+<       if (m_backoff.MaxRetriesReached ())
+---
+>       if (m_channel->IsFullDuplex ())
+522,525c537
+<           //
+<           // Too many retries, abort transmission of packet
+<           //
+<           TransmitAbort ();
+---
+>           NS_LOG_LOGIC ("Channel busy!");
+529c541,551
+<           m_macTxBackoffTrace (m_currentPkt);
+---
+>           m_txMachineState = BACKOFF;
+>           if (m_backoff.MaxRetriesReached ())
+>             {
+>               //
+>               // Too many retries, abort transmission of packet
+>               //
+>               TransmitAbort ();
+>             }
+>           else
+>             {
+>               m_macTxBackoffTrace (m_currentPkt);
+531,532c553,554
+<           m_backoff.IncrNumRetries ();
+<           Time backoffTime = m_backoff.GetBackoffTime ();
+---
+>               m_backoff.IncrNumRetries ();
+>               Time backoffTime = m_backoff.GetBackoffTime ();
+534c556
+<           NS_LOG_LOGIC ("Channel busy, backing off for " << backoffTime.GetSeconds () << " sec");
+---
+>               NS_LOG_LOGIC ("Channel busy, backing off for " << backoffTime.GetSeconds () << " sec");
+536c558,559
+<           Simulator::Schedule (backoffTime, &CsmaNetDevice::TransmitStart, this);
+---
+>               Simulator::Schedule (backoffTime, &CsmaNetDevice::TransmitStart, this);
+>             }
+625c648
+<   NS_ASSERT (m_channel->GetState () == TRANSMITTING);
+---
+>   NS_ASSERT (m_channel->GetState (m_deviceId) == TRANSMITTING);
+636c659
+<   m_channel->TransmitEnd (); 
+---
+>   m_channel->TransmitEnd (m_deviceId); 
+690a714,715
+>   NS_LOG_LOGIC ("Device ID is " << m_deviceId);
+> 
+726a752
+>   NS_LOG_LOGIC ("Device ID is " << m_deviceId);
+780c806
+<   EthernetHeader header (false);
+---
+>   VlanHeader header;
+987a1014
+>   NS_LOG_LOGIC ("Device ID is " << m_deviceId);
+diff -a -r ns-allinone-3.29/ns-3.29/src/csma/model/csma-net-device.h NS3/bake/source/ns-3.29/src/csma/model/csma-net-device.h
+75a76,77
+>     IQDATA,
+>     BG
+Only in NS3/bake/source/ns-3.29/src/csma-layout/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/csma-layout/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/dsdv/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/dsdv/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/dsr/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/dsr/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/energy/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/energy/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/fd-net-device/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/fd-net-device/bindings: modulegen_customizations.pyc
+Only in NS3/bake/source/ns-3.29/src/fd-net-device/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/flow-monitor/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/flow-monitor/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/: .gitignore
+Only in NS3/bake/source/ns-3.29/src/internet/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/internet/bindings: modulegen__gcc_LP64.pyc
+diff -a -r ns-allinone-3.29/ns-3.29/src/internet/model/udp-socket-impl.cc NS3/bake/source/ns-3.29/src/internet/model/udp-socket-impl.cc
+19a20,21
+> #define NS_LOG_APPEND_CONTEXT \
+>   if (m_node) { std::clog << m_node->GetLocalTime() << " [node " << m_node->GetId () << "] "; }
+Only in NS3/bake/source/ns-3.29/src/internet-apps/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/internet-apps/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/lr-wpan/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/lr-wpan/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/lte/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/lte/bindings: modulegen_customizations.pyc
+Only in NS3/bake/source/ns-3.29/src/lte/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/mesh/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/mesh/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/mobility/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/mobility/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/mpi/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/mpi/bindings: modulegen__gcc_LP64.pyc
+diff -a -r ns-allinone-3.29/ns-3.29/src/mpi/model/distributed-simulator-impl.cc NS3/bake/source/ns-3.29/src/mpi/model/distributed-simulator-impl.cc
+496c496
+< void
+---
+> EventId
+diff -a -r ns-allinone-3.29/ns-3.29/src/mpi/model/distributed-simulator-impl.h NS3/bake/source/ns-3.29/src/mpi/model/distributed-simulator-impl.h
+115c115
+<   virtual void ScheduleWithContext (uint32_t context, Time const &delay, EventImpl *event);
+---
+>   virtual EventId ScheduleWithContext (uint32_t context, Time const &delay, EventImpl *event);
+diff -a -r ns-allinone-3.29/ns-3.29/src/mpi/model/null-message-simulator-impl.cc NS3/bake/source/ns-3.29/src/mpi/model/null-message-simulator-impl.cc
+422c422
+< void
+---
+> EventId
+diff -a -r ns-allinone-3.29/ns-3.29/src/mpi/model/null-message-simulator-impl.h NS3/bake/source/ns-3.29/src/mpi/model/null-message-simulator-impl.h
+60c60
+<   virtual void ScheduleWithContext (uint32_t context, Time const &delay, EventImpl *event);
+---
+>   virtual EventId ScheduleWithContext (uint32_t context, Time const &delay, EventImpl *event);
+Only in NS3/bake/source/ns-3.29/src/network/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/network/bindings: modulegen__gcc_LP64.pyc
+diff -a -r ns-allinone-3.29/ns-3.29/src/network/examples/main-packet-header.cc NS3/bake/source/ns-3.29/src/network/examples/main-packet-header.cc
+4a5
+> #include "ns3/vlan-header.h"
+121,122c122,124
+<   MyHeader sourceHeader;
+<   sourceHeader.SetData (2);
+---
+>   VlanHeader sourceHeader;
+>   sourceHeader.SetData (5);
+>   sourceHeader.SetPriority (2);
+140a143
+>   std::cout <<p->PeekHeader().GetPriority();
+diff -a -r ns-allinone-3.29/ns-3.29/src/network/helper/trace-helper.cc NS3/bake/source/ns-3.29/src/network/helper/trace-helper.cc
+30a31
+> #include "ns3/sll-header.h"
+170c171,183
+<   file->Write (Simulator::Now (), p);
+---
+>   if(file->GetDataLinkType() == PcapHelper::DLT_NETLINK)
+>   {
+>     NS_LOG_DEBUG("Prepending a cooked header");
+> 
+>     SllHeader sll = SllHeader ();
+>     sll.SetArpType(ARPHRD_NETLINK);
+>     sll.SetPacketType(SllHeader::UNICAST_FROM_PEER_TO_ME);
+>     file->Write (Simulator::Now (), sll, p);
+>   }
+>   else {
+>     file->Write (Simulator::Now (), p);
+>   }
+> 
+diff -a -r ns-allinone-3.29/ns-3.29/src/network/model/node.cc NS3/bake/source/ns-3.29/src/network/model/node.cc
+33a34,42
+> #include "ns3/clock.h"
+> #include "ns3/clock-perfect.h"
+> #include "ns3/nstime.h"
+> #include "ns3/callback.h"
+> #include "ns3/scheduler.h"
+> #include "ns3/object-factory.h"
+> #include "ns3/map-scheduler.h"
+> #include "ns3/simulator-impl.h"
+> #include "ns3/scheduler.h"
+80c89,90
+<     m_sid (0)
+---
+>     m_sid (0),
+>     m_localUid(0)
+98a109,164
+> 
+>   {
+>     ObjectFactory factory;
+>     factory.SetTypeId (MapScheduler::GetTypeId ());
+>     this->SetScheduler (factory);
+>   }
+> 
+>   Ptr<Clock> clock = CreateObject<ClockPerfect>();
+>   AggregateObject (clock);
+> }
+> 
+> void
+> Node::SetClock (Ptr<Clock> clock)
+> {
+>   NS_LOG_FUNCTION (this);
+>   if (clock != 0)
+>     {
+>       m_clock = clock;
+>       m_clock->SetFrequencyChangeCallback (MakeCallback(&Node::RefreshEvents, Ptr<Node> (this)));
+>     }
+> }
+> 
+> Ptr<Clock> 
+> Node::GetClock ()
+> {
+>   return m_clock;
+> }
+> 
+> void
+> Node::NotifyNewAggregate ()
+> {
+>   NS_LOG_FUNCTION (this);
+>   if (m_clock == 0)
+>     {
+>       Ptr<Clock> clock = this->GetObject<Clock> ();
+>       this->SetClock (clock);
+>     }
+> 
+>   Object::NotifyNewAggregate ();
+> }
+> 
+> void
+> Node::SetScheduler (ObjectFactory schedulerFactory)
+> {
+>   NS_LOG_FUNCTION (this << schedulerFactory);
+>   Ptr<Scheduler> scheduler = schedulerFactory.Create<Scheduler> ();
+> 
+>   if (m_events != 0)
+>     {
+>       while (!m_events->IsEmpty ())
+>         {
+>           Scheduler::Event next = m_events->RemoveNext ();
+>           scheduler->Insert (next);
+>         }
+>     }
+>   m_events = scheduler;
+117c183,537
+<   return Simulator::Now ();
+---
+>   NS_ASSERT_MSG (m_clock, "Node must have a proper clock");  
+> //  Ptr<Clock> clock = GetObject<Clock>();
+> //  if(clock) {
+>     return m_clock->GetTime();
+> //  }
+> //  return Simulator::Now();
+> //  return m_clock;
+> }
+> 
+> EventId
+> Node::GetNextEvent () const
+> {
+>     return m_nextEvent.first;
+> }
+> 
+> EventId
+> Node::GetNextEventSim () const
+> {
+>     return m_nextEvent.second;
+> }
+> 
+> 
+> int 
+> Node::InjectOffset (Time delta)
+> {
+>     NS_LOG_FUNCTION (this);
+>     NS_ASSERT_MSG (m_clock, "Node must have a proper clock");
+>     NS_FATAL_ERROR ("Not implemented");
+> //    m_clock->LocalToAbsTime ()
+> }
+> 
+> 
+> 
+> /*
+>  Called on clock update. Should update time of last registered event
+>  */
+> //double oldFreq, double newFreq
+> void
+> Node::RefreshEvents ()
+> {
+>   NS_LOG_FUNCTION ("Might need to reschedule top event");
+> //  NS_LOG_DEBUG ("Should now refresh event expiration times " << oldFreq << "/" << newFreq);
+> 
+>   /* 
+>   Recompute time of registered event and reschedule it into the simulator
+>   */
+>   // If an event was registered
+>   if (GetNextEvent ().IsRunning ())
+>   {
+>     NS_LOG_DEBUG ("Event pending/registered in Simulator ! Recomputing the simulator time...");
+> //    Time simTime;
+> //    m_clock->LocalTimeToSimulatorTime(GetNextEvent ().GetTs(), &simTime);
+>     
+>     // TODO check, cancelling the implmentation may crash ?
+>     GetNextEventSim().Cancel ();
+>     ForceLocalEventIntoSimulator ( GetNextEvent());
+>   }
+>   else {
+>     
+>     NS_LOG_DEBUG ("No event pending/registered in Simulator.");
+>   }
+>   
+> }
+> 
+> /*
+> Used to update absolute time of
+> , EventImpl *event
+> TODO add overload for
+> 
+> */
+> //void
+> //Node::EnqueueEvent (
+> //                    EventId localEvent
+> //                    )
+> //{
+> //  NS_LOG_DEBUG(&localEvent);
+> //
+> //  Ptr<ClockPerfect> clock = GetObject<ClockPerfect>();
+> //  // Do the conversion eventSimTime <<
+> //  Time eventSimTime;
+> ////    Time eventSimTime;
+> //  bool res = clock->LocalTimeToSimulatorTime ( Time (localEvent.GetTs()), &eventSimTime);
+> //  NS_ASSERT_MSG ( res, "WOOT" );
+> //
+> //  // if nextEvent is replaced by a sooner one, then we need to remove it from scheduled
+> //  if (GetNextEvent ().IsRunning())
+> //  {
+> //    // TODO check that it does not destory the EventImpl* ?
+> //    // otherwise one would need to play with refCount or CopyObject
+> //    Simulator::Cancel (GetNextEventSim());
+> //
+> ////    eventSimTime- Schedule::Now(),
+> //  }
+> //
+> //  EventId simEventId = Simulator::Schedule ( eventSimTime - Simulator::Now(), localEvent.PeekEventImpl());
+> //  m_nextEvent = std::make_pair (localEvent, simEventId);
+> //}
+> 
+> 
+> /**
+> it must check if there is an event already scheduled in main:
+> - if there isn't, it calls Simulator::Schedule
+> - If there is:
+>    > if the new event happens before then:
+>    cancel the matching EventId in Simulator
+>    > Simulator::Schedule
+> - otherwise
+> TODO return bool to know if it's finished ?
+> 
+> Also the simulator should
+>  */
+> void
+> Node::ScheduleNextEventOnSimulator ()
+> {
+>   NS_LOG_FUNCTION_NOARGS ();
+> 
+>   /**
+>    * \returns a pointer to the next earliest event. The caller
+>    *      takes ownership of the returned pointer.
+>    *
+>    * This method cannot be invoked if the list is empty.
+>    */
+>    if (m_events->IsEmpty ()) 
+>     {
+>       NS_LOG_DEBUG ( "No event in queue. Stop here." );
+>       return;
+>     }
+>   Scheduler::Event nextEvent = m_events->PeekNext ();
+>   
+>   EventId nodeEventId ( nextEvent.impl, nextEvent.key.m_ts, nextEvent.key.m_context, nextEvent.key.m_uid);
+>   bool enqueueNextEvent = false;   //!< if set to true, means
+> 
+>   //!
+>   if (GetNextEventSim ().IsRunning ())
+>   {
+>     NS_LOG_DEBUG ( "An event is already scheduled. at local Ts=" << GetNextEvent ().GetTs () );
+>     
+>     // if the newly scheduled event should be scheduled before
+>     if( nodeEventId.GetTs () < GetNextEvent ().GetTs ())
+>     {
+>         NS_LOG_DEBUG ( "Replace current first event with a new one." );
+>         // we should cancel the running one
+>         GetNextEventSim ().Cancel ();
+> //        Simulator::Cancel (GetNextEventSim ());
+>         enqueueNextEvent = true;
+>      }
+>      else {
+>         NS_LOG_DEBUG ( "Currently scheduled happens first. Do nothing." );
+>      }
+>   }
+>   else 
+>   {
+>     NS_LOG_DEBUG ( "No node event running in Simulator yet" );
+>     enqueueNextEvent = true;
+>   }
+> 
+>   // if we are not the next event=, abort here,
+>   if (!enqueueNextEvent) {
+>     NS_LOG_DEBUG ( "Don't queue first" );
+>     return;
+>   }
+> 
+>   ForceLocalEventIntoSimulator (nodeEventId);
+> }
+> 
+> 
+> void 
+> Node::ForceLocalEventIntoSimulator (EventId nodeEventId)
+> {
+>   NS_LOG_FUNCTION_NOARGS ();
+>   Time eventSimTime;
+> // TODO ideally should be replaced with a simple Clock
+>   Ptr<ClockPerfect> clock = GetObject<ClockPerfect>();
+> 
+>   // we need to schedule
+>   bool res = clock->LocalTimeToSimulatorTime ( Time (nodeEventId.GetTs ()), &eventSimTime);
+>   NS_ASSERT_MSG ( res, "Could not compute timelapse" );
+> 
+> //  // if nextEvent is replaced by a sooner one, then we need to remove it from scheduled
+> //  if (GetNextEvent ().IsRunning ())
+> //  {
+> //    // TODO check that it does not destory the EventImpl* ?
+> //    // otherwise one would need to play with refCount or CopyObject
+> //    Simulator::Cancel (GetNextEventSim());
+> //
+> ////    eventSimTime- Schedule::Now(),
+> //  }
+> 
+>   NS_LOG_DEBUG ( "Enqueuing event to Simulator in " << eventSimTime - Simulator::Now() );
+>   EventId simEventId = Simulator::ScheduleWithContext ( nodeEventId.GetContext(),
+>                           eventSimTime - Simulator::Now(), 
+>                           &Node::ExecOnNode, this
+> //                          , nodeEventId.PeekEventImpl()
+>                     );
+>   NS_LOG_DEBUG ( "simEventId=" << simEventId.GetUid() );
+>   m_nextEvent = std::make_pair (nodeEventId, simEventId);
+> }
+> 
+> void 
+> Node::ExecOnNode ()
+> {
+>   NS_LOG_FUNCTION ( Simulator::Now() );
+> //  NS_ASSERT (event);
+> //  
+>   Scheduler::Event next = m_events->RemoveNext();
+>   NS_ASSERT (next.key.m_ts >= Simulator::Now());
+>   NS_LOG_DEBUG (next.key.m_uid);
+> 
+>   next.impl->Invoke ();
+>   next.impl->Unref ();
+>   // TODO mark event as finisehd ?
+>   // Now that it's finished, check if we need to add another one
+>   ScheduleNextEventOnSimulator ();
+> }
+> 
+> EventId 
+> Node::Schedule (Time const &timeOffset, EventImpl *event) 
+> {
+>     return DoSchedule( timeOffset, event);
+> }
+> 
+> EventId
+> Node::ScheduleWithContext (uint32_t context, Time const &time, EventImpl *event)
+> {
+>     NS_FATAL_ERROR ("not implemented");
+> }
+> 
+> EventId
+> Node::DoSchedule (Time const &timeOffset, EventImpl *event)
+> {
+>   NS_LOG_FUNCTION (this << timeOffset.GetTimeStep () << event);
+> //  NS_ASSERT_MSG (SystemThread::Equals (m_main), "Simulator::Schedule Thread-unsafe invocation!");
+> 
+> 
+>   Time localTime = GetLocalTime ();
+>   Time eventLocalTime = localTime + timeOffset;
+> 
+> 
+>   NS_ASSERT (eventLocalTime.IsPositive ());
+> //  NS_ASSERT (eventLocalTime >= localTime);
+> 
+>   // In all cases I insert the event
+>   Scheduler::Event newEvent; // rename into newEvent
+>   newEvent.impl = event;
+>   // TODO check time if we need to add sthg
+>   NS_LOG_DEBUG ( "DoSchedule at localtime=" << eventLocalTime);
+>   newEvent.key.m_ts = (uint64_t) eventLocalTime.GetTimeStep ();
+>   newEvent.key.m_context = this->GetId ();
+> //  ev.key.m_uid = Simulator::GetImplementation()->GetFreeUid();
+>   newEvent.key.m_uid = m_localUid;
+>   m_localUid++;
+> 
+>   // TODO check that m_localUid did not wrap
+>   // m_unscheduledEvents++;
+>   m_events->Insert (newEvent);
+> 
+> 
+>   EventId nodeEventId (event, newEvent.key.m_ts, newEvent.key.m_context, newEvent.key.m_uid);
+>   nodeEventId.m_node = this;
+> 
+>    ScheduleNextEventOnSimulator ();
+> //  EnqueueEvent (nodeEventId);
+> /* TODO quand on l'insère on doit se demander si :
+>   - il y a un nextEvent (isRunning ?
+>   - si oui comparer les clés Scheduler::EventKey pour maj ou pas le m_next
+>   */
+>   // Hack
+> 
+>   // if no valid nextEvent, we setup the new one
+>   return nodeEventId;
+> }
+> 
+> 
+> EventId
+> Node::ScheduleNow (EventImpl *event)
+> {
+>     return DoSchedule (Time (0), event);
+> }
+> 
+> 
+> void
+> Node::Remove (EventId &id)
+> {
+>     //!
+>     NS_LOG_WARN ("not implemented yet");
+>     Cancel (id);
+> }
+> 
+> bool
+> Node::IsExpired (const EventId &id) const
+> {
+>   // Uid == 2 => destroy event. Not implemented in node stuff yet so
+>   // just forget about it
+> //  if (id.GetUid () == 2)
+> //    {
+> //      if (id.PeekEventImpl () == 0 ||
+> //          id.PeekEventImpl ()->IsCancelled ())
+> //        {
+> //          return true;
+> //        }
+> //      // destroy events.
+> //      for (DestroyEvents::const_iterator i = m_destroyEvents.begin (); i != m_destroyEvents.end (); i++)
+> //        {
+> //          if (*i == id)
+> //            {
+> //              return false;
+> //            }
+> //        }
+> //      return true;
+> //    }
+>   NS_LOG_FUNCTION_NOARGS ();
+> 
+>   Time localTs = GetLocalTime();
+>   if (id.PeekEventImpl () == 0 ||
+>       id.GetTs () < localTs ||
+>       (id.GetTs () == localTs && id.GetUid () <= m_localUid) ||
+>       id.PeekEventImpl ()->IsCancelled ()
+>       )
+>     {
+>       return true;
+>     }
+>   else
+>     {
+>       return false;
+>     }
+> }
+> 
+> void
+> Node::Cancel (EventId &localId)
+> {
+>   NS_LOG_FUNCTION (localId.GetUid());
+> 
+>   if (!IsExpired (localId))
+>     {
+>       NS_LOG_DEBUG ("Cancelling the implementation");
+>       localId.PeekEventImpl ()->Cancel ();
+>     }
+> 
+> //  localId.Cancel ();
+>   ScheduleNextEventOnSimulator ();
+> #if 0
+>   // not schedulet in main Simulator yet, hence, just skip it
+>   else
+>   {
+> 
+>     // Version de DefaultSimulator
+>     // ====
+>   //      if (!IsExpired (id))
+>   // TODO may need some more checks
+>     if (!localId.PeekEventImpl ()->IsCancelled ())
+>       {
+>         localId.PeekEventImpl ()->Cancel ();
+>       }
+>   }
+>   #endif
+diff -a -r ns-allinone-3.29/ns-3.29/src/network/model/node.h NS3/bake/source/ns-3.29/src/network/model/node.h
+29a30,33
+> #include "ns3/simulator.h"
+> #include "ns3/make-event.h"
+> #include "ns3/clock.h"
+> #include "ns3/scheduler.h"
+35a40
+> class Clock;
+37c42,43
+< 
+---
+> class Scheduler;
+> class ObjectFactory;
+91a98,109
+>    *
+>    */
+>   Ptr<Clock> GetClock ();
+> 
+>   /**
+>    * Called by adjtimex
+>    * return 0 if successful
+>    */
+>   virtual int InjectOffset (Time delta);
+> 
+> 
+>   /**
+211a230,310
+>   ///////////////////////////////////////////////////
+>   /// GSOC Additions: begin 
+>   ///////////////////////////////////////////////////
+> 
+>   /**
+>    * Detect when a clock is aggregated and save it into a private member
+>    */
+>   virtual void NotifyNewAggregate ();
+> 
+>   // TODO remove ? setup callback in Clock
+>   virtual void SetClock (Ptr<Clock> clock);
+> 
+>   // same as in DefaultSimulatorImpl
+>   EventId Schedule (Time const &time, EventImpl *event);
+> 
+>   // C++11 quick & dirty hacks
+>   template<typename ... Types>
+>   EventId Schedule (Time const &timeOffset, Types... rest)
+>   {
+>       // That's basically what does Simulator::DoSchedule
+>       return DoSchedule( timeOffset, MakeEvent( (rest)...));
+> //    return Simulator::Schedule(rest...);
+>   }
+> 
+>   /** 
+>    * Required for dce as dce pass node id via the context.
+>    */
+>   virtual EventId ScheduleWithContext (uint32_t context, Time const &time, EventImpl *event);
+> 
+>   EventId ScheduleNow (EventImpl *event);
+> 
+>   // TODO fix tabs
+>   template<typename ... Types>
+>   EventId ScheduleNow (Types... rest)
+>   {
+> 
+>       EventId event = DoSchedule(Time(0), rest...);
+>       //    m_events[m_currentActiveEventsArray].push_back(event);
+>       return event;
+>   }
+> 
+>   /**
+>    * Once event finishes, the next event in line must be scheduled,
+>    * hence we need some kind of wrapper to schedule the next local event
+>    */
+>   EventId DoSchedule (Time const &time, EventImpl *event);
+> 
+>   /**
+>    * We need this wrapper function, in order to schedule on Simulator::
+>    * the next event to come
+>    * inspired by DefaultSimulatorImpl::ProcessOneEvent 
+>    */
+> //  void ExecOnNode (EventImpl* event);
+>   void ExecOnNode ();
+> 
+>   /** 
+>    * return local next event
+>    * TODO renommer e
+>    */
+>   EventId GetNextEvent () const;
+> 
+>   /**
+>    * TODO rename to Simulator ?
+>    * \return EventId under which is registered the local next event in the Simulator.
+>    */
+>   EventId GetNextEventSim () const;
+> 
+>   /**
+>    * EventImpl will have a time local
+>   */
+> 
+>   // Does remove make sense ?
+>   // virtual void Remove (const EventId &id);
+>   
+> //  virtual void Cancel (const EventId &id);
+>   virtual void Cancel (EventId &id);
+> 
+>   // Implemented as a cancel
+> // TODO reestablish const 
+>   virtual void Remove (EventId &id);
+>   virtual bool IsExpired (const EventId &id) const;
+212a312,317
+>   void SetScheduler (ObjectFactory schedulerFactory);
+> 
+>   /**
+>    * Callback called whenever clock is updated (get rid of paramaters)
+>    */
+>   virtual void RefreshEvents ();
+213a319
+>   void ForceLocalEventIntoSimulator (EventId nodeEventId);
+220a327
+>   virtual void ScheduleNextEventOnSimulator ();
+290a398,410
+> 
+> 
+>   Ptr<Clock> m_clock; //!< Local variable pointing at the aggregated clock if any
+> 
+>   Ptr<Scheduler> m_events; //!< List of
+> 
+>   /**
+>    * Maps the local EventId to simulator EventId to allow for cancelling the event.
+>    */
+>   std::pair<EventId,EventId> m_nextEvent;
+> 
+>   uint32_t    m_localUid;         //!< Next free event uid
+> 
+Only in NS3/bake/source/ns-3.29/src/network/test: node-schedule-test.cc
+Only in NS3/bake/source/ns-3.29/src/network/utils: multi-queue.cc
+Only in NS3/bake/source/ns-3.29/src/network/utils: multi-queue.h
+Only in NS3/bake/source/ns-3.29/src/network/utils: multi-queue-limited.cc
+Only in NS3/bake/source/ns-3.29/src/network/utils: multi-queue-limited.h
+diff -a -r ns-allinone-3.29/ns-3.29/src/network/utils/pcap-file.cc NS3/bake/source/ns-3.29/src/network/utils/pcap-file.cc
+31a32,34
+> #include "ns3/trace-helper.h"
+> #include "ns3/sll-header.h"
+> 
+446c449,450
+<   uint32_t inclLen = WritePacketHeader (tsSec, tsUsec, p->GetSize ());
+---
+>   uint32_t inclLen = 0;
+>   inclLen = WritePacketHeader (tsSec, tsUsec, p->GetSize ());
+diff -a -r ns-allinone-3.29/ns-3.29/src/network/utils/pcap-file-wrapper.cc NS3/bake/source/ns-3.29/src/network/utils/pcap-file-wrapper.cc
+158c158
+< void
+---
+> /*void
+176c176
+< }
+---
+> }*/
+diff -a -r ns-allinone-3.29/ns-3.29/src/network/utils/pcap-file-wrapper.h NS3/bake/source/ns-3.29/src/network/utils/pcap-file-wrapper.h
+143c143
+<   void Write (Time t, uint8_t const *buffer, uint32_t length);
+---
+>   //void Write (Time t, uint8_t const *buffer, uint32_t length);
+diff -a -r ns-allinone-3.29/ns-3.29/src/network/utils/sll-header.h NS3/bake/source/ns-3.29/src/network/utils/sll-header.h
+28a29,34
+> /* Definitions taken from Linux "linux/if_arp.h" header file, and from
+> http://www.iana.org/assignments/arp-parameters
+> ARP protocol HARDWARE identifiers.
+> */
+> #define ARPHRD_NETLINK 824
+> 
+Only in NS3/bake/source/ns-3.29/src/network/utils: vlan-header.cc
+Only in NS3/bake/source/ns-3.29/src/network/utils: vlan-header.h
+diff -a -r ns-allinone-3.29/ns-3.29/src/network/wscript NS3/bake/source/ns-3.29/src/network/wscript
+66a67,69
+>         'utils/vlan-header.cc',
+>         'utils/multi-queue.cc',
+>         'utils/multi-queue-limited.cc',
+87a91
+>         'test/node-schedule-test.cc',
+158a163,165
+>         'utils/vlan-header.h',
+>         'utils/multi-queue.h',
+>         'utils/multi-queue-limited.h',
+Only in NS3/bake/source/ns-3.29/src/nix-vector-routing/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/nix-vector-routing/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/olsr/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/olsr/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/point-to-point/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/point-to-point/bindings: modulegen_customizations.pyc
+Only in NS3/bake/source/ns-3.29/src/point-to-point/bindings: modulegen__gcc_LP64.pyc
+diff -a -r ns-allinone-3.29/ns-3.29/src/point-to-point/model/point-to-point-channel.cc NS3/bake/source/ns-3.29/src/point-to-point/model/point-to-point-channel.cc
+39c39
+<     .AddAttribute ("Delay", "Propagation delay through the channel",
+---
+>     .AddAttribute ("Delay", "Propagation delay through the channel in one direction",
+41c41,45
+<                    MakeTimeAccessor (&PointToPointChannel::m_delay),
+---
+>                    MakeTimeAccessor (&PointToPointChannel::m_forwardDelay),
+>                    MakeTimeChecker ())
+>     .AddAttribute ("BackwardDelay", "Transmission delay through the channel in the other direction",
+>                    TimeValue (Seconds (0)),
+>                    MakeTimeAccessor (&PointToPointChannel::m_backwardDelay),
+59c63,64
+<     m_delay (Seconds (0.)),
+---
+>     m_forwardDelay (Seconds (0.)),
+>     m_backwardDelay (Seconds (0.)),
+82a88,89
+>       m_link[0].m_delay = m_forwardDelay;
+>       m_link[1].m_delay = m_backwardDelay;
+100,102c107,110
+<   Simulator::ScheduleWithContext (m_link[wire].m_dst->GetNode ()->GetId (),
+<                                   txTime + m_delay, &PointToPointNetDevice::Receive,
+<                                   m_link[wire].m_dst, p->Copy ());
+---
+>   Simulator::ScheduleWithContext (GetDestination(wire)->GetNode ()->GetId (),
+>                                   txTime + GetDelay(wire),
+>                                   &PointToPointNetDevice::Receive,
+>                                   GetDestination(wire), p->Copy ());
+105c113
+<   m_txrxPointToPoint (p, src, m_link[wire].m_dst, txTime, txTime + m_delay);
+---
+>   m_txrxPointToPoint (p, src, GetDestination(wire), txTime, txTime + GetDelay(wire));
+127a136
+>   NS_ASSERT (i < 2);
+131a141,147
+> PointToPointChannel::GetDelay (uint32_t i) const
+> {
+>   NS_ASSERT (i < 2);
+>   return m_link[i].m_delay;
+> }
+> 
+> Time
+134c150
+<   return m_delay;
+---
+>   return m_link[0].m_delay;
+139a156
+>   NS_ASSERT (i < 2);
+145a163
+>   NS_ASSERT (i < 2);
+diff -a -r ns-allinone-3.29/ns-3.29/src/point-to-point/model/point-to-point-channel.h NS3/bake/source/ns-3.29/src/point-to-point/model/point-to-point-channel.h
+107a108,109
+>   Time GetDelay (uint32_t i) const;
+> 
+152c154,155
+<   Time          m_delay;    //!< Propagation delay
+---
+>   Time          m_forwardDelay;    //!< Propagation delay
+>   Time          m_backwardDelay;    //!< Propagation delay
+197c200
+<     Link() : m_state (INITIALIZING), m_src (0), m_dst (0) {}
+---
+>     Link() : m_state (INITIALIZING), m_src (0), m_dst (0), m_delay(0) {}
+201a205
+>     Time m_delay;                       //!< Propagation delay
+diff -a -r ns-allinone-3.29/ns-3.29/src/point-to-point/test/point-to-point-test.cc NS3/bake/source/ns-3.29/src/point-to-point/test/point-to-point-test.cc
+26a27
+> #include "ns3/log.h"
+29a31,32
+> NS_LOG_COMPONENT_DEFINE ("PointToPointChannelTest");
+> 
+42c45
+<   PointToPointTest ();
+---
+>   PointToPointTest (Time forwardOwd, Time backwardOwd);
+55a59,65
+> 
+>   bool UponPacketReception(Ptr<NetDevice>, Ptr<const Packet>, uint16_t, const Address & );
+> 
+>   Time m_forwardOwd;           //!<
+>   Time m_backwardOwd;          //!<
+>   Time m_packetSendingTime;            //!<
+> 
+58,59c68,71
+< PointToPointTest::PointToPointTest ()
+<   : TestCase ("PointToPoint")
+---
+> PointToPointTest::PointToPointTest (Time forwardOwd, Time backwardOwd)
+>   : TestCase ("PointToPoint"),
+>   m_forwardOwd(forwardOwd),
+>   m_backwardOwd(backwardOwd)
+66a79
+>   m_packetSendingTime = Simulator::Now();
+69a83,91
+> //typedef Callback< bool, Ptr<NetDevice>, Ptr<const Packet>, uint16_t, const Address & > s3::NetDevice::ReceiveCallback
+> bool
+> PointToPointTest::UponPacketReception(Ptr<NetDevice>, Ptr<const Packet>, uint16_t, const Address & )
+> {
+>        //! check that it took at least the propagation time
+> //  Ptr<Packet> p = Create<Packet> ();
+> //  device->Send (p, device->GetBroadcast (), 0x800);
+>   NS_LOG_INFO ("propagation time" << (Simulator::Now() - m_packetSendingTime) );
+>   NS_ASSERT( Simulator::Now() - m_packetSendingTime > m_forwardOwd );
+70a93,95
+>   // Now we echo back the packet to A
+>   return true;
+> }
+78a104,105
+>   channel->SetAttribute("ForwardDelay", TimeValue (m_forwardOwd) );
+>   channel->SetAttribute("BackwardDelay", TimeValue (m_backwardOwd));
+82a110
+> 
+85a114
+>   devB->SetReceiveCallback( MakeCallback(&PointToPointTest::UponPacketReception, this));
+97a127
+>   Simulator::Schedule (Seconds (4.0  + m_forwardOwd), &PointToPointTest::SendOnePacket, this, devB);
+119c149,152
+<   AddTestCase (new PointToPointTest, TestCase::QUICK);
+---
+>   // symmetric test
+>   AddTestCase (new PointToPointTest(MilliSeconds(10), MilliSeconds(10)), TestCase::QUICK);
+>   // asymmetric test
+>   AddTestCase (new PointToPointTest(MilliSeconds(100), MilliSeconds(50)), TestCase::QUICK);
+Only in NS3/bake/source/ns-3.29/src/point-to-point-layout/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/point-to-point-layout/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/propagation/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/propagation/bindings: modulegen_customizations.pyc
+Only in NS3/bake/source/ns-3.29/src/propagation/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/sixlowpan/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/sixlowpan/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/spectrum/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/spectrum/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/stats/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/stats/bindings: modulegen_customizations.pyc
+Only in NS3/bake/source/ns-3.29/src/stats/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/tap-bridge/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/tap-bridge/bindings: modulegen_customizations.pyc
+Only in NS3/bake/source/ns-3.29/src/tap-bridge/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/topology-read/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/topology-read/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/traffic-control/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/traffic-control/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/uan/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/uan/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/virtual-net-device/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/virtual-net-device/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/visualizer/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/visualizer/bindings: modulegen__gcc_LP64.pyc
+diff -a -r ns-allinone-3.29/ns-3.29/src/visualizer/model/visual-simulator-impl.cc NS3/bake/source/ns-3.29/src/visualizer/model/visual-simulator-impl.cc
+159c159
+< void
+---
+> EventId
+diff -a -r ns-allinone-3.29/ns-3.29/src/visualizer/model/visual-simulator-impl.h NS3/bake/source/ns-3.29/src/visualizer/model/visual-simulator-impl.h
+61c61
+<   virtual void ScheduleWithContext (uint32_t context, Time const &delay, EventImpl *event);
+---
+>   virtual EventId ScheduleWithContext (uint32_t context, Time const &delay, EventImpl *event);
+Only in NS3/bake/source/ns-3.29/src/wave/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/wave/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/wifi/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/wifi/bindings: modulegen_customizations.pyc
+Only in NS3/bake/source/ns-3.29/src/wifi/bindings: modulegen__gcc_LP64.pyc
+Only in NS3/bake/source/ns-3.29/src/wimax/bindings: callbacks_list.pyc
+Only in NS3/bake/source/ns-3.29/src/wimax/bindings: modulegen__gcc_LP64.pyc

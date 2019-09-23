@@ -2273,3 +2273,205 @@ c.rehash(n) | 重组存储，bucket_count >= n且满足load_factor要求
 c.reserve(n) | 重组存储，使得c可以保存n个元素且不必rehash
 
 利用无序容器装填自定义类型的时候，必须提供自己的hash版本。详细内容见16章。
+
+## chapter12 动态内存
+静态内存保存局部static、类static数据成员，以及定义在函数之外的变量。栈用来保存函数内非static对象。动态分配的对象在堆区。
+
+一般的分配中，new需要delete。但是用智能指针，可以自动释放对象。C++中有三种智能指针，shared_ptr允许多个指针指向同个对象，unique_ptr独占所指向的对象和weak_ptr指向shared_ptr所管理的对象。
+
+### shared_ptr
+||shard_ptr和unique_ptr公有操作|
+-|-
+shared_ptr<T> sp<br>unique_ptr<T> up | 空智能指针，指向类型为T的对象
+p / *p / p->mem |和普通指针用法一样
+p.get() | 返回p中保存的指针。如果智能指针释放了对象则指向的对象消失
+swap(p, q)<br>p.swap(q) | 交换p和q中的指针
+
+||shared_ptr独有的操作|
+-|-
+make_shared<T>(*args*) | 返回一个shard_ptr，指向动态分配的类型为T的对象，用args初始化对象
+shared_ptr<T> p(q)<br>p = q | p是q的拷贝，q中的指针必须能转化为T*
+p.unique() | return p.use_count == 1;
+p.use_count() | 返回与p共享对象的智能指针数量
+
+使用举例：
+```C++
+//p1指向值为42的int
+shared_ptr<int> p1 = make_shared<int>(42);
+//p2指向“9999999999”的string
+shared_ptr<string> p2 = make_shared<string>(10, '9');
+//p3指向值为0的int
+shared_ptr<int> p3 = make_shared<int>();
+//简便写法
+auto p4 = make_shared<vector<string>>();
+```
+对于shared_ptr，如果放到容器中之后，指向的对象不需要再使用，最好用erase删除之，从而释放不必要的内存。
+
+使用动态内存的原因之一是允许多个对象共享相同的状态，而不需要对其进行一一拷贝。例子见chapter12文件夹下的StrBlob.cc文件。
+
+### 直接内存管理
+C++可以用new和delete来分配和释放动态内存。但是相比于智能指针，直接内存管理的类不能依赖类对象拷贝、赋值和销毁操作的任何默认定义。
+
+默认情况下，动态分配的对象是默认初始化的。但也可以用直接初始化的方式来构建（使用圆括号或者花括号）。当提供括号包围的初始化器，可以用auto，例如：
+```C++
+auto p1 = new auto(obj);    //p指向一个与obj类型相同的对象，该对象用obj初始化
+auto p2 = new auto{a, b, c};//错误，括号中只能有一个初始化器，否则无法推断类型
+```
+利用const可以动态分配const对象，此时new返回的指针是一个指向const的指针。
+
+当内存不足，无法满足new的需求时，会抛出bad_alloc异常，但是可以改变new的方式来阻止异常，如：
+```C++
+int *p1 = new int;              //if allocate failed, throw std::bad_alloc
+int *p2 = new (nothrow) int;    //if failed, return a nullptr
+```
+对于new的空间，使用完之后记得delete。但是不能释放非new的空间，或者将相同指针值释放多次。编译器只能判断delete的对象是否为指针，不能检测出上述错误。例如：
+```C++
+int i, *pi1 = &i, *pi2 = nullptr;
+double *pd = new double(33), *pd2 = pd;
+delete i;   //error, i is not a pointer
+delete pi1; //undefined! pi1 point to a local variable
+delete pd;  //correct
+delete pd2; //undefined! the memory pd2 point to has been freed
+delete pi2; //delete a nullptr is always right
+```
+### shared_ptr和new结合使用
+可以用new返回的指针来初始化智能指针。但是智能指针的构造早函数explicit的，因此不能将内置指针隐式转化成智能指针，必须直接初始化。例如：
+```C++
+shared_ptr<double> p1;              //p1 point to a double
+shared_ptr<int> p2(new int(42));    //p2 point to a int values 42
+shared_ptr<int> p = new int(1024);  //error! explicit必须直接初始化不能拷贝构造
+shared_ptr<int> clone(int p) {
+    return new int(p);              //error! 不能隐式转化成智能指针
+}
+shared_ptr<int> clone(int p) {
+    return shared_ptr<int>(new int(p));   //correct!    
+}
+```
+智能指针和普通指针之间不要混合使用，否则会发生错误。一旦把一个智能指针绑定到普通指针后，内存管理的任务就是智能指针来负责，不要再用内置指针访问智能指针指向的内存。一个典型的错误：
+```C++
+void procee(shared_ptr<int> ptr) {
+    //using ptr
+} //ptr is deleted
+
+int *x(new int(1024));
+process(x);  //error!
+process(shared_ptr<int>(x));  //correct
+int j = *x;         //undefined! x is a dangling pointer
+```
+由于x交给智能指针托管，传入函数后，ptr在离开函数的时候就被销毁，智能指针指向的空间计数成了0,则空间被释放，导致原先的x成了悬空指针
+
+智能指针有get函数，返回一个内置指针，指向智能指针管理的对象。get返回指针的代码不能delete该指针，并且不能让get初始化另一个智能指针。例如：
+```C++
+shared_ptr<int> p(new int(42));
+int *q = p.get();
+
+{
+    shared_ptr<int>(q);
+}//q has been deleted
+int foo = *p;  //error!
+```
+和前面一样，让智能指针托管q之后，离开作用域，则q指向的空间被销毁，q指向的空间也是p指向的空间，会发生严重的错误！get函数返回的是内置指针，各自的引用计数都是1 ！！！
+
+智能指针也可以用来管理非动态内存，但此时要注意构造的时候传递一个删除器来代替delete操作。
+
+正确使用智能指针的一些规范：
++ 不使用相同的内置指针初始化或reset多个只能指针
++ 不delete get()返回的指针
++ 不使用get()初始化或reset另一个智能指针
++ 使用的智能指针管理的资源不是new分配的，需要传递一个删除器
+
+总而言之，尽量不要浑用普通指针和动态指针。因为用普通指针创建智能指针的时候初始引用计数是1,即便已经创建过一次了。
+
+### unique_ptr
+||unique_ptr特有操作|
+- | -
+unique_ptr<T> u1<br>unique_ptr<T, D> u2 | 空的unique_ptr，指向类型为T的对象。<br>u1会用delete释放指针，u2用类型为D的可调用对象释放指针
+unique_ptr<T, D> u(d) | 空ptr，用类型为D的对象d代替delete
+u = nullptr | 释放u指向的对象，将u置空
+u.release() | u放弃对指针的控制权，返回指针并置空u，但u指向的空间没有释放！
+u.reset()<br>u.reset(q)<br>u.reset(nullptr) | 释放u指向的对象<br>如果提供了内置指针q，令u指向这个对象<br>否则u置空
+
+使用举例：
+```C++
+unique_ptr<string> p1(new string("stegosaurus"));
+unique_ptr<string> p2(p1);  //unique_ptr不支持拷贝
+unique_ptr<string> p3;
+p3 = p2;                    //unique_ptr不支持赋值
+
+unique_ptr<string> p2(p1.release());    //p1置空
+unique_ptr<string> p3(new string("Trex"));
+p2.reset(p3.release());                 //reset释放p2原来指向的内存
+```
+对于unique_ptr，当我们拷贝或者赋值一个即将被销毁的unique_ptr时，是允许的。最常见的是从一个函数返回unique_ptr。
+
+unique_ptr初始化的时候需要绑定到一个new构建的对象上，否则报错！！！
+
+### weak_ptr
+weak_ptr不控制指向对象的生存周期，指向一个shared_ptr管理的对象。与shared_ptr绑定之后，不会改变shared_ptr的引用计数。
+
+||weak_ptr操作|
+- | -
+weak_ptr<T> w<br>weak_ptr<T> w(sp) | 初始化一个weak_ptr
+w = p | p是一个shared或者weak_ptr，赋值后两者共享对象
+w.reset() | 将w置空
+w.use_count() | 与w共享的shared_ptr的数量
+w.expired() | return w.use_count == 0;
+w.lock() | 如果expired为true,返回空的shared_ptr,否则返回一个指向w的对象的shared_ptr
+
+由于对象可能不存在，因此不能用weak_ptr直接访问对象，而必须调用lock。例如：
+```C++
+if(shared_ptr<int> np = wp.lock()) {
+
+}
+```
+上述循环中，当wp指向的对象存在才会进入，循环结束后np的生命周期结束。否则不进入循环，保证安全。
+
+### new和数组
+利用new动态分配数组之后，分配的只是一个数组元素类型的指针，该内存并不是数组类型，无法对动态数组调用begin和end等操作。对于数组的delete，需要在delete后跟[]，销毁顺序为数组元素的逆序
+
+### 智能指针和动态数组
+unique_ptr可以用来管理动态数组，管理动态数组的时候，一旦release则调用delete[\]销毁管理的数组。当其管理动态数组的时候，不能用->运算符，可以用[]取下标。例如：
+```C++
+unique_ptr<int[]> up(new int[10]);
+up.release();               //auto call delete[]
+for (size_t i = 0; i != 10; ++i)
+    up[i] = i;
+```
+如果要用shared_ptr管理动态数组，必须提供自己的删除器，不然调用的是delete不是delete[]会出错。而且访问元素的时候没有下标访问方式，不建议使用。例子如下：
+```C++
+shared_ptr<int> sp(new int[10], [](int *p){delete[] p;});
+sp.reset();         //利用lambda表达式调用delete[]
+for(size_t i = 0; i != 10; ++i)
+    *(sp.get() + i) = i;
+```
+
+### allocator类
+||allocator类及算法|
+- | -
+allocator<T> a | a为allocator类对象，可以为T类型的对象分配内存
+a.allocate(n) | 分配原始、未构造的内存，可以保存n个类型为T的对象
+a.deallocate(p, n) | 释放T*指针p中地址开始的内存。释放之前必须对每个元素都调用destory
+a.construct(p, *args*) | 利用args在p指向的内存中构造一个对象
+a.destory(p) | 对p的对象执行析构函数
+
+使用举例：
+```C++
+allocator<string> alloc;
+auto const p = alloc.allocate(n);       //可以分配n个未初始化的string
+auto q = p;                             
+alloc.construct(q++);                   //*q为空字符串
+alloc.construct(q++, 10, 'c');          //*q为cccccccccc
+alloc.construct(q++, "hi");             //*q为hi
+
+while(q != p)
+    alloc.destory(--q);                 //释放构造的string
+
+alloc.deallocate(p, n);                 //释放内存
+```
+针对allocator，有四种常用的算法，分别是：
++ `uninitialized_copy(b, e, b2)`,将b->e区间的内容拷贝到b2开始的区间
++ `uninitialized_copy_n(b, n, b2`，将n个b拷贝到b2开始的区间
++ `uninitialized_fill(b, e, t)`，在b到e区间创建对象，对象值均为t
++ `uninitialized_fill(b, n, t)`，在b开始的区间创建n个值为t的对象
++ 四种算法的返回值都是最后一个构造的元素之后的位置
+
