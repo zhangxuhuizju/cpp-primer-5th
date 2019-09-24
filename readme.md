@@ -2475,3 +2475,136 @@ alloc.deallocate(p, n);                 //释放内存
 + `uninitialized_fill(b, n, t)`，在b开始的区间创建n个值为t的对象
 + 四种算法的返回值都是最后一个构造的元素之后的位置
 
+## chapter13 拷贝控制
+对于C++而言，必须定义对象拷贝、移动、赋值或者销毁的时候做哪些事情，编译器可能会帮我们默认定义，但是可能做的事情并不是我们所想的，因此需要程序员显示完成。
+
+### 拷贝构造函数
+一个构造函数，第一个参数是自身类类型的引用，且任何额外的参数都有默认值，则此构造函数是拷贝构造函数。例如：
+```C++
+class Foo {
+public:
+    Foo();              //默认构造函数
+    Foo(const Foo&);    //拷贝构造函数
+};
+```
+对于一个类，即便已经定义了拷贝构造函数，编译器也会为我们定义一个合成拷贝构造函数，将参数成员逐个拷贝到正在创建的对象中。如果元素是类类型，那么调用其拷贝构造函数来进行拷贝。
+
+会发生拷贝初始化的情况：
++ 用 = 定义变量的时候
++ 将一个对象作为实参传递给一个非引用类型的形参
++ 从一个返回类型为非引用类型的函数返回一个对象
++ 用花括号列表初始化一个数组中的元素或者聚合类的成员
+
+注意对于标准库容器的对象，insert是拷贝，emplace是直接初始化的！对于explicit的构造函数，拷贝初始化有限制，例如：
+```C++
+vector<int> v1(10);         //直接初始化
+vector<int> v2 = 10;        //error! 接受大小参数的构造函数是explicit的
+void f(vector<int>);        //f参数进行拷贝初始化
+f(10);                      //error! 不能用explicit构造函数拷贝一个实参
+f(vector<int>(10));         //从一个int直接构造一个临时vector
+```
+拷贝构造函数一般是初始化的使用，利用拷贝初始化进行。而对于后期，两个相同的类型进行赋值操作的时候，会用到拷贝赋值运算符，自己写的类里面需要重载之。同样，编译器也会默认构建一个。
+
+通常对于拷贝赋值运算符，如果运算符是个成员函数，其左侧运算对象就绑定到隐式的this参数。赋值运算符通常返回一个指向其左侧运算对象的引用，例如：
+```C++
+Sales_data&
+Sales_data::operator=(const Sales_data &rhs) {
+    bookNo = rhs.bookNo;
+    units_sold = rhs.unit_sold;
+    revenue = rhs.revenue;
+    return *this;
+}
+```
+### 析构函数
+析构函数由~加上类名构成，没有返回值，也不接受任何参数。不能被重载，一个类只会有唯一一个析构函数。对于构造函数，成员初始化是构造函数函数体之间完成的。对于析构函数，首先执行函数体，然后销毁成员。成员按照初始化（即定义的）顺序逆序销毁。
+
+注意，隐式销毁一个内置指针类型的成员不会delete其指向的对象。当一个对象的引用或指针离开作用域的时候，析构函数不会执行。
+
+析构举例：
+```C++
+{//新作用域
+    //p和p2指向动态分配的对象
+    Sales_data *p = new Sales_data;
+    auto p2 = make_shared<Sales_data>();
+    Sales_data item(*p);
+    vector<Sales_data> vec;
+    vec.push_bak(*p2);
+    delete p;           //对p指向的对象执行析构函数
+}//推出局部作用域，对item、p2和vec调用析构函数
+ //销毁p2会递减引用计数，如果变为0,对象被释放
+ //销毁vector会销毁其元素
+```
+注意析构函数体本身并不直接销毁成员，成员是在析构函数体之后隐含的析构阶段被销毁的。
+
+两大设计原则：
++ 一个类需要自定义析构函数，几乎肯定他也需要自定义拷贝赋值运算符和拷贝构造函数
++ 一个类需要自定义拷贝构造函数 or 拷贝赋值运算符，那么也需要另一半。而对于析构函数，不一定需要自定义
+
+拷贝控制成员和析构函数也可以用 = default要求编译器合成默认版本。在类内写则是inline的。
+
+### 阻止拷贝
+对于一些特殊的类，比如IO类，需要编写拷贝构造函数来阻止拷贝。
+
+#### 定义删除的函数
+在函数参数列表上写 = delete表示希望将其定义为删除的，例如：
+```C++
+struct NoCopy{
+    NoCopy() = default;
+    NoCopy(const NoCopy &) = delete;    //阻止拷贝
+    NoCopy& operator=(const NoCopy&) = delete;  //阻止赋值
+    ~NoCopy() = default;  
+};
+```
+=default和=delete的不同之处：
++ =delete必须出现在函数第一次声明的时候
++ 可以对任何函数使用=delete
+
+如果析构函数被删除，那么不能定义这种类型的变量或成员，但可以动态分配这种类型的对象。但是无法释放，如：
+```C++
+struct NoDtor{
+    NoDtor() = default;
+    ~NoDtor() = delete;
+};
+NoDtor nd;                  //error!
+NoDtor *p = new NoDtor();
+delete p;                   //error!
+```
+如果一个类有数据成员不能默认构造、拷贝、赋值或销毁，那么对应的成员函数将被定义为删除的。
+
+新标准前，将拷贝和赋值函数定义为私有的来阻止拷贝和赋值，但是无法对友元和类内函数的拷贝和赋值进行阻止。因此，尽量使用=delete的新标准。
+
+### 交换操作
+重排元素顺序的算法会调用swap，一个类最好能定义自己的swap操作。一个典型的swap实现如下：
+```C++
+class HasPtr{
+    friend void swap(HasPtr&, HasPtr&);
+};
+
+inline
+void swap(HasPtr &lhs, HasPtr &rhs) {
+    using std::swap;
+    swap(lhs.ps, rhs.ps);  //交换的是指针，不是string数据
+    swap(lhs.i, rhs.i);
+}
+```
+对于以上定义好的swap，当调用的时候，必须调用HasPtr的swap而不是std::swap。例如现在有个Foo的类，它有个类型为HasPtr的成员h，则编写Foo的swap：
+```C++
+void swap(Foo &lhs, Foo &rhs) {
+    //error! 用了std的swap而不是HasPtr的swap
+    std::swap(lhs.h, rhs.h);
+}
+
+void swap(Foo &lhs, Foo &rhs) {
+    using std::swap;
+    swap(lhs.h, rhs.h); //使用HasPtr版本的swap
+}
+```
+利用swap的一个例子：
+```C++
+HasPtr& HasPtr::opreator=(HasPtr rhs){
+    swap(*this, rhs);   //rhs现在指向本对象层使用的内存
+    return *this;       //rhs被销毁，从而delete了rhs中的指针
+}
+```
+该版本中，右侧运算对象以传值的方式传递给赋值运算符，则rhs是右侧运算对象的一个副本。参数传递的时候会拷贝该对象的string副本。因为是有副本拷贝，因此天然是异常安全的，能够保证自赋值的正确性。
+

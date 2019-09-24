@@ -5,6 +5,16 @@ StrBlob::StrBlob():data(make_shared<vector<string>>()){}
 StrBlob::StrBlob(initializer_list<string> il):
         data(make_shared<vector<string>>(il)){}
 
+StrBlob::StrBlob(const StrBlob& sb){
+    data = make_shared<vector<string>>(*sb.data);
+}
+
+StrBlob& StrBlob:: operator=(const StrBlob& sb){
+    auto newData = make_shared<vector<string>>(*sb.data);
+    data = newData;
+}
+
+
 void StrBlob::check(size_type i, const string &msg) const {
     if (i >= data->size())
         throw out_of_range(msg);

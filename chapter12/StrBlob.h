@@ -13,6 +13,8 @@ public:
     using size_type = vector<string>::size_type;
     StrBlob();
     StrBlob(initializer_list<string> il);
+    StrBlob(const StrBlob&);
+    StrBlob& operator=(const StrBlob&);
     size_type size() const {return data->size();}
     bool empty() const {return data->empty();}
     void push_back(const string &s) {data->push_back(s);}
