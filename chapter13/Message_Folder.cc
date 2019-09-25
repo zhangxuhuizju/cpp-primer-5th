@@ -1,6 +1,7 @@
 #include <string>
 #include <set>
 #include <iostream>
+#include <utility>
 
 class Folder;
 
@@ -14,7 +15,9 @@ public:
         std::cout << contents << std::endl;
     }
     Message(const Message &);   //拷贝构造函数
+    Message(Message&&);         //移动构造函数
     Message& operator=(const Message &);
+    Message& operator=(Message &&);
     ~Message();
     void save(Folder&);
     void remove(Folder&);
@@ -26,6 +29,7 @@ private:
     void remove_from_folders();
     void addFold(Folder *fld){folders.insert(fld);}
     void remFold(Folder *fld) {folders.erase(fld);}
+    void move_folders(Message*);
 };
 
 class Folder{
@@ -66,6 +70,19 @@ Message::Message(const Message &msg):
     add_to_folders(msg);    //将本消息添加到msg指向的文件夹里面
 }
 
+Message::Message(Message &&msg):contents(std::move(msg.contents)) {
+    move_folders(&msg);
+} 
+
+void Message::move_folders(Message *msg) {
+    folders = std::move(msg->folders);
+    for (auto f : folders) {
+        f->remMsg(msg);
+        f->addMsg(this);
+    }
+    msg->folders.clear();
+}
+
 void Message::remove_from_folders() {
     for (auto f : folders)
         f->remMsg(this);
@@ -80,6 +97,15 @@ Message& Message::operator=(const Message &msg) {
     contents = msg.contents;
     folders = msg.folders;
     add_to_folders(msg);
+    return *this;
+}
+
+Message& Message::operator=(Message &&msg) {
+    if (&msg != this) {
+        remove_from_folders();
+        contents = std::move(msg.contents);
+        move_folders(&msg);
+    }
     return *this;
 }
 
