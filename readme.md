@@ -2746,3 +2746,357 @@ public:
 } 
 ```
 对于右值进行的函数，可以任意在原对象上改修，对于左值则必须拷贝一份，不能在原对象上任意修改。
+
+## 重载运算与类型转换
+### 基本概念
++ 重载运算符是成员函数时，this绑定到左侧运算对象
++ 对于运算符函数，至少有一个类类型的参数
++ 只能重载已有的运算符
++ 对于既可以是一元运算符又可以是二元运算符的符号，可以从参数的数量上推断
++ 无论符号是否重载，优先级和结合率都不会改变
+
+使用重载的运算符，本质上是一次函数调用。因此这些关于运算对象求值顺序的规则无法应用到重载的运算符上。基于此，`&&  ，  &  ||`不建议重载。
+
+使用重载运算符应该与内置类型一致：
++ 类如果执行IO，则定义移位预算符使其与内置类型的IO一致
++ 类的某个操作是检查相等性，那么定义operator==。此外最好也定义operator！=
++ 如果有单序比较操作，定义operator<,以及其他关系操作
++ 逻辑运算和关系运算返回bool，算数运算返回类类型的值，赋值和复合赋值运算符返回左侧运算对象的一个引用
+
+重载运算符作为成员还是非成员函数：
++ 赋值（=）、下标（[]）、调用（()）和成员访问（->）运算符必须是成员
++ 复合赋值运算符一般来说是成员，但也不一定
++ 改变对相撞太或者与给定类型密切相关的运算符，如递增、递减、解引用等通常是成员
++ 对称性的运算符可能转化任意一端的运算对象，通常是普通的非成员函数
+
+### 输入和输出运算符
+### 重载输入输出运算符
+通常情况下，输出运算符的第一个形参是非常量的ostream对象的引用，第二个是常量的引用。输出运算符尽量减少格式化操作，该部分留给用户自行控制。例：
+```C++
+ostream& operator<<(ostream &os, const Sales_data &item) {
+    os << item.isbn() << " " << item.units_sold << " "
+       << item.revenue << " " << item.avg_price();
+    return os;
+}
+```
+输入输出运算符必须是非成员函数，否则其左侧运算对象将变为类的一个对象，如：
+```C++
+data << cout;   //data将输出运算符写作成员函数的用法
+```
+对于输入运算符，与输出运算符不同的是，必须能够处理输入失败的情况，例：
+```C++
+istream& operator>>(istream &is, Sales_data &item) {
+    double price;
+    is >> item.bookNo >> item.units_sold >> price;
+    if (is)
+        item.revenue = item.units_sold * price;
+    else 
+        item = Sales_data();        //判断输入是否失败
+    return is;
+}
+```
+输入错误一般有：
++ 流错误类型的数据时，读取操作会失败
++ 遇到eof或者与到输入流的其他错误
+
+对于这些错误，一次性验证即可，像上述代码示例。
+
+### 算术和关系运算符
+算数运算符使用举例：
+```C++
+Sales_data operator+(const Sales_data& lhs, const Sales_data& rhs) {
+    Sales_data sum = lhs;
+    sum += lhs;
+    return sum;
+}
+```
+对于算数运算符的重载，一般会把对应的复合赋值运算符也重载。在算数运算符里面调用重载的复合赋值运算符来实现是一般的做法。
+
+#### 相等运算符
+一般 == 和 != 运算符两者要一起出现，而且 != 中可以简单调用 == 运算取反的结果即可。
+
+#### 关系运算符
+对于 < 运算符，如果存在唯一一种可靠的 < 定义，则可以重载。当类内也同时包含 == 时，当且仅当 < 的定义和 == 产生的结果一致才可以定义 < 运算符。
+
+例如对于Sales_data类，如果定义 < 运算符，利用isbn的大小來排序，那么会出现，当两个对象不相等的时候(!= 重载的时候需要所有成员一样才返回false)两者谁都不比谁小，会出现不必要的歧义。
+
+### 赋值运算符
+赋值运算符一般需要作为成员函数，可以有多种不同类型的重载，代表不同形式的赋值操作。例如：
+```C++
+class StrVec {
+public:
+    StrVec &operator=(std::initializer_list<std::string>);
+    //...
+};
+StrVec &StrVec operator=(std::initializer_list<std::string> il) {
+    auto data = alloc_n_copy(il.begin(), il.end());
+    free();
+    elements = data.first;
+    first_free = cap = data.second;
+    return *this;
+}
+```
+### 下标运算符
+表示容器的类通常可以通过元素在容器中的位置访问元素，这些类一般会定义operator[]，且必须是成员函数。
+
+下标运算符通常以所访问元素的引用作为返回值，这样下标就可以出现在赋值运算的任何一端。并且最好定义常量和非常量的版本。例：
+```C++
+class StrVec {
+public:
+    std::string& operator[](std::size_t n)
+        {return elements[n];}
+    const std::string& operator[](std::size_t n) const
+        {return elements[n];}
+private:
+    std::string *elements;          //指向数组首元素的指针
+};
+```
+### 递增和递减运算符
+递增递减运算符因为会改变所操作对象状态，建议设为成员函数。定义递增和递减运算符的类应该同时定义前置和后置的版本。重载的一个例子：
+```C++
+class StrBlobPtr {
+public:
+    //前置版本
+    StrBlobPtr& operator++();
+    StrBlobPtr& operator--();
+    //后置版本
+    StrBlobPtr operator++(int);
+    StrBlobPtr operator++(int);
+    //......
+};
+
+StrBlobPtr& StrBlobPtr::operator++() {
+    //check(...)
+    ++curr;
+    return *this;
+}
+
+StrBlobPtr& StrBlobPtr::operator--() {
+    --curr;
+    //check(...)
+    return *this;
+}
+
+StrBlobPtr StrBlobPtr::operator++() {
+    StrBlobPtr ret = *this;
+    ++*this;
+    return ret;
+}
+
+StrBlobPtr StrBlobPtr::operator--() {
+    StrBlobPtr ret = *this;
+    --*this;
+    return ret;
+}
+
+StrBlobPtr p(a1);
+p.operator++(0);            //后置版本
+p.operator++();             //前置版本
+```
+前置版本中函数不需要参数，后置版本设置了一个额外的不适用的int形参，从而来进行区分是前置还是后置版本。前置版本返回的是引用，后置版本则不是。调用的时候也可以显示的调用。
+
+### 成员访问运算符
+先举一个使用的例子：
+```C++
+class StrBlobPtr {
+public:
+    std::string& operator*() const {
+        auto p = check();
+        return (*p)[curr];          //*p是对象所指的vector
+    }
+
+    std::string* operator->() const {
+        return & this->operator*();
+    }
+};
+```
+对于*运算符的重载比较好理解，返回当前对象的某个内容即可。关键是要理解 -> 运算符。例如对于point->mem举例，根据point的不同，可以有两种等价方式
++ `(*point).mem   //point是一个内置的指针类型`
++ `point.operator()->mem    //point是一个类的对象`
+
+其执行过程为：
++ 如果point是指针，则应用内置的箭头运算符，先解引用该对象再获取对应的成员
++ 如果point是定义了operator->的类的一个对象，则使用point.operator->()的结果来获取mem。根据结果的不同，重复执行上一步或该步。
+
+### 函数调用运算符
+还是以例子来说明：
+```C++
+class PrintString {
+public:
+    PrintString(ostream &o = cout, char c = ' '):
+        os(o), sep(c){}
+    void operator()(const string &s) const {os << s << sep;}
+private:
+    ostream &os;
+    char sep;
+};
+
+PrintString printer;
+printer(s);             //在cout中打印s后面加个空格
+PrintString errors(cerr, '\n');
+errors(s);              //在cerr中打印s，后面跟一个换行符
+
+//第三个实参是类型PrintString的一个临时对象，调用for_each时会把所有元素依次打印
+for_each(v.begin(), v.end(), PrintString(cerr, '\n'));
+```
+对于函数调用运算符可以有很多不同的版本，相互之间在参数数量或类型上有区别即可。
+
+### 标准库定义的函数对象
+标准库定义了一套模板对象，来表示算数运算符、关系运算符和逻辑运算符的类,头文件为functional。
+||标准库函数对象||
+-|-|-
+算术|关系|逻辑
+plus\<Type\> | equal_to\<Type\> | logical_and\<Type\>
+minus\<Type\> | not_equal_to\<Type\> | logical_or\<Type\>
+multiplies\<Type\> | greater\<Type\> | logical_not\<Type\>
+divides\<Type\> | greater_equal\<Type\> | 
+modulus\<Type\> | less\<Type\>
+negate\<Type\> | less_equal\<Type\>
+
+用法举例：
+```C++
+plus<int> intAdd;
+negate<int> intNegate;
+int sum = intAdd(10, 20);       //sum = 30
+sum = intNegate(intAdd(10,20)); //sum = -30
+
+sort(sevc.begin(), sevc.end(), greater<string>());
+
+//标准库的函数对于指针也可以按照对应的地址大小排序，如
+vector<string *> nameTable;
+//error! 指针之间无法比较大小
+sort(nameTable.begin(), nameTable.end(),
+    [](string *a, string *b){return a<b;});
+//正确
+sort(nameTable.begin(), nameTable.end(), less<string*>());
+```
+### 可调用对象与function
+C++中，函数、函数指针、lambda表达式、bind创建的对象和重载了函数调用运算符的类都是可调用对象。对于所有可调用对象，根据返回类型和传递给调用的实参类型可以决定一个类别。
+
+标准库定义了function类型，可以绑定所有同类别的可调用对象。例子如下：
+```C++
+int add(int i, int j) {return i + j;}
+auto mod = [](int i, int j) {return i % j;}
+struct divide {
+    int operator()(int i, int j) {
+        return i / j;
+    }
+};
+
+function<int(int, int)> f1 = add;
+function<int(int, int)> f2 = divide;
+function<int(int, int)> f3 = mod;
+
+f1(4,2);    //6
+f2(4,2);    //2
+f3(4,2);    //0
+
+map<string, function<int(int, int)>> binops = {
+    {"+", add},
+    {"-", std::minus<int>()},
+    {"/", divide()},
+    {"*", [](int i, int j){return i*j;}},
+    {"%", mod}
+};
+//接下来可以用如下操作
+binops["+"](10,5);  //调用add(10,5)
+```
+对于重载的函数，利用函数指针指明是哪个函数再加入到map中，否则编译器无法通过单独的函数名来判断。
+
+### 重载、类型转换与运算符
+#### 类型转换运算符
+类型转换运算符是类的特殊成员函数，负责将类类型转换成其他类型，形式如`operator type() const`所示。类型转换运算符可以面向除了void外任何类型进行定义。
+
+类型转换运算符没有显式的返回类型，也没有形参，而且必须定义成类的成员函数，一般是const的。举例：
+```C++
+class smallInt {
+public:
+    smallInt(int i = 0) val(i) {
+        if (i < 0 || i > 255)
+            throw std::out_of_range("Bad SamllInt value");
+    }
+    operator int() const{
+        return val;
+    }
+private:
+    std::size_t val;
+};
+
+smallInt si;
+si = 4;     //将4隐式转化为samllInt然后调用smallInt::operator=
+si + 3;     //首先将si隐式转化为int，然后执行整数的加法
+```
+用户定义的类的类型转换一次只能执行一个，但可以将隐式的用户定义类型转化置于一个内置类型转换之前或之后。
+
+#### 显式的类型转换运算符
+为了防止隐式类型转换造成的不必要的困扰，可以用explicit指定显式的转换，如：
+```C++
+class smallInt(int i = 0) val(i) {
+public:
+    if (i < 0 || i > 255)
+        throw std::out_of_range("Bad SamllInt value");
+    }
+    explicit operator int() const{
+        return val;
+    }
+private:
+    std::size_t val;
+};
+
+smallInt si = 3;    //正确，构造函数不是显式的
+si + 3;             //错误，类的运算符是显式的
+static_cast<int>(si) + 3;   //正确，显式请求类型转换
+```
+遇到以下情况，则显式的类型转换会被隐式的执行：
++ if、while和do语句的条件部分
++ for语句的条件部分
++ 逻辑非、逻辑或和逻辑与的运算对象
++ 条件运算符的条件表达式
+
+### 避免二义性的类型转换
+举个例子：
+```C++
+struct B;
+struct A {
+    A() = default;
+    A(const &B);        //把一个B转换成A
+    //......
+};
+struct B {
+    operator A() const; //把一个B转换成A
+    //......
+};
+
+A f(const &A);
+B b;
+A a = f(b); //二义性错误，是f(B::operator A())
+            //还是f(A::A(const &B))
+A a1 = f(b.operator A());   //正确，显式调用B的类型转换
+A a2 = f(A(b));             //正确，显式调用A的构造函数
+```
+### 函数匹配和重载运算符
+例子：
+```C++
+class smallInt {
+    friend
+    smmallInt operator+(const smallInt&, const smallInt&);
+public:
+    smallInt(int i = 0) val(i) {
+        if (i < 0 || i > 255)
+            throw std::out_of_range("Bad SamllInt value");
+    }
+    operator int() const{
+        return val;
+    }
+private:
+    std::size_t val;
+};
+
+smallInt s1, s2;
+samllInt s3 = s1 + s2;      //使用重载的operator+
+int i = s3 + 0;             //二义性错误，可以把0转换成smallInt也可以把s3转化为int
+```
+二义性的一些需要注意的点：
++ 一般不要为类定义相同的类型转换，也不要在类内定义两个及以上的转换源或目标是算数类型的转换
++ 使用两个用户定义的类型转换时，如果转换函数之前或者之后存在标准类型转换，则标准类型转换决定哪个是最佳匹配。
++ 调用重载函数的时候，如果需要额外的标准类型转换，则转换的级别只有当所有可行函数都请求同一个用户定义的类型转换时才有用。

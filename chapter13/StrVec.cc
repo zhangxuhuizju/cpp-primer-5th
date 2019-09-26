@@ -3,10 +3,13 @@
 #include <vector>
 #include <algorithm>
 #include <iostream>
+#include <stdexcept>
 #include <iterator>
 
 class StrVec{
 public:
+    friend bool operator==(const StrVec&, const StrVec&);
+    friend bool operator!=(const StrVec&, const StrVec&);
     StrVec():
         elements(nullptr), first_free(nullptr),cap(nullptr){}
     StrVec(std::initializer_list<std::string>);
@@ -23,6 +26,8 @@ public:
     std::string *end() const{return first_free;}
     void reserve(size_t n);
     void resize(size_t s, const std::string& = std::string());
+    std::string& operator[](const size_t n);
+    const std::string& operator[](const size_t n) const;
 private:
     static std::allocator<std::string> alloc;   //allocate elements
     //被添加元素的函数所使用
@@ -140,4 +145,29 @@ void StrVec::resize(size_t ns, const std::string &s) {
         for (auto i = size(); i != ns; ++i)
             alloc.construct(first_free++, s);
     }
+}
+
+bool operator==(const StrVec& lhs, const StrVec& rhs) {
+    if (lhs.size() != rhs.size())
+        return false;
+    for (size_t i = 0; i != lhs.size(); ++i)
+        if (*(lhs.elements+i) != *(rhs.elements+i))
+            return false;
+    return true;
+}
+
+bool operator!=(const StrVec& lhs, const StrVec& rhs) {
+    return !(lhs == rhs);
+}
+
+std::string& StrVec::operator[](const size_t n) {
+    if (n >= size())
+        throw std::runtime_error("index out of range!");
+    return elements[n];
+}
+
+const std::string& StrVec::operator[](const size_t n) const {
+    if (n >= size())
+        throw std::runtime_error("index out of range!");
+    return elements[n];
 }

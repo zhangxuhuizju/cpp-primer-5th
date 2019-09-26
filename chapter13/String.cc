@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <iostream>
 #include <cstring>
+#include <stdexcept>
 #include <vector>
 #include "String.h"
 
@@ -61,6 +62,43 @@ std::ostream & operator << (std::ostream &out,  const String& s) {
     std::for_each(s.elements, s.ends, [&out](char &c){out<<c;});
     //out << "output:";
     return out;
+}
+
+bool operator==(const String& lhs, const String& rhs) {
+    size_t llen = lhs.size();
+    size_t rlen = rhs.size();
+    if (llen != rlen)
+        return false;
+    for (auto i = 0; i < llen; ++i)
+        if (*(lhs.elements+i) != *(rhs.elements+i))
+            return false;
+    return true;
+}
+
+bool operator!=(const String& lhs, const String& rhs) {
+    return !(lhs == rhs);
+}
+
+bool operator<(const String& lhs, const String& rhs) {
+    size_t llen = lhs.size();
+    size_t rlen = rhs.size();
+    size_t size = llen < rlen ? llen : rlen;
+    for (int i = 0; i < size; ++i)
+        if (*(lhs.elements+i) != *(rhs.elements+i))
+            return *(lhs.elements+i) < *(rhs.elements+i);
+    return llen < rlen;
+}
+
+char& String::operator[](const size_t n){
+    if (n >= size())
+        throw std::runtime_error("index out of range!");
+    return elements[n];
+}
+
+const char& String::operator[](const size_t n) const {
+    if (n >= size())
+        throw std::runtime_error("index out of range!");
+    return elements[n];
 }
 
 int main()
