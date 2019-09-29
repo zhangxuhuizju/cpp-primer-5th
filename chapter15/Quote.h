@@ -17,8 +17,11 @@ public:
         bookNo(std::move(quote.bookNo)), price(std::move(quote.price)) {
         std::cout << "Quote移动构造函数" << std::endl;
     }
+    virtual Quote* clone() const & {return new Quote(*this);}
+    virtual Quote* clone() const && {return new Quote(std::move(*this));}
+
     Quote& operator=(const Quote&);
-    Quote& operator=(Quote &&quote) noexcept;
+    Quote& operator=(Quote &&) noexcept;
     std::string isbn() const {return bookNo;}
     virtual double net_price(std::size_t n) const {
         return n*price;
@@ -51,13 +54,11 @@ public:
     Bulk_quote(const std::string&, double, std::size_t, double);
     double net_price(std::size_t n) const override;
     void debug(void) const override;
+    virtual Bulk_quote* clone() const & {return new Bulk_quote(*this);}
+    virtual Bulk_quote* clone() const && {return new Bulk_quote(std::move(*this));}
     ~Bulk_quote() override = default;
 };
 
-double print_total(std::ostream &os, const Quote &item, size_t n) {
-    double ret = item.net_price(n);
-    os << "ISBN: " << item.isbn() << " #sold: " << n
-       << " total due: " << ret << std::endl;
-    return ret;
-}
+double print_total(std::ostream &os, const Quote &item, size_t n);
+
 #endif
