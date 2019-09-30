@@ -3663,3 +3663,118 @@ func(compare<int>); //正确，显式指出编译器应该传递的compare版本
 当参数是一个函数模板实例的地址时，程序上下文必须满足：对每个模板参数，能唯一确定其值或类型。
 
 ### 模板实参推断和引用
+```C++
+template <typename T> void f1(T&);          //实参必须是一个左值
+//对f1的调用使用实参所引用的类型作为模板参数类型
+f1(i);      //i是一个int，模板参数类型T是int
+f1(ci);     //ci是一个const int，模板参数类型是const int
+f1(5);      //错误，必须传递给f1一个左值
+
+template <typename T> void f2(const T&);    //实参可以接受右值
+//f2中的参数是const &,实参中的const是无关的
+//下面三种情况，T都是int
+f2(i);
+f2(ci);
+f2(5);      //一个const &参数可以绑定到一个右值
+
+template <typename T> void f3(T&&);
+f3(42);     //实参是一个int类型的右值，模板参数T是右值
+```
+影响右值引用参数推断的两条准则：
++ 当我们将一个左值传递给右值引用时，编译器会推断模版参数类型为实参的左值引用类型，即将T推断为T&，以使用左值引用（一般情况下我们不能定义一个引用的引用，但是通过类型别名或者模版参数类型间接定义是可以的）
++ 只有四个以上的引用符号会转化为X&& &&折叠为X&&，其他都会折叠为普通的左值引用X&
+
+引用折叠只能应用于间接创建的引用的引用，如类型别名或模板参数。根据以上原则，有：
+```C++
+f3(i);      //T为int&
+f3(ci);     //T为const int&
+```
+但是，右值引用类型有时会造成困扰，如：
+```C++
+template <typename T> void f3(T&& val) {
+    T t = val;      //拷贝还是绑定一个引用？
+    t = fcn(t);     //值改变t还是t和val都改变
+    if (val == t) {...}
+}
+```
+上述f3中，传入一个右值和传入一个左值得到的结果类型完全不同。比如传入42,那么T为int。传入i，T为int&。为了避免这种困扰，一般定义两个模板：
+```C++
+template <typename T> void f(T&&);
+template <typename T> void f(const T&);
+```
+### std::move
+利用move，可以获得一个绑定到左值上的右值引用。标准库的move定义如下：
+```C++
+template <typename T>
+typename remove_reference<T>::type&& move(T&& t) {
+    return static_cast<typename remove_reference<T>::type&&>(t);
+}
+```
+利用remove_reference去除引用，再在返回类型里面指定是右值。如此一来，无论传递的是左值还是右值引用，最终返回的结果都是右值类型。
+
+### 转发
+当使用下面函数的时候，无法保持const属性以及实参的左值/右值属性。
+```C++
+//接受一个可调用对象和另外两个参数
+//flip1会丢失顶层const和引用
+template <typename F, typename T1, typename T2>
+void flip1(F f, T1 t1, T2 t2) {
+    f(t2, t1);
+}
+
+void f(int v1, int &v2) {
+    cout << v1 << " " << ++v2 << endl;
+}
+
+f(42, i);           //f会改变i
+flip1(f, j, 42);    //通过flip1调用f不会改变j
+```
+上面的示例代码中，通过flip1调用f，传入的j和42分别拷贝给了t1和t2,后续函数调用改变t1和t2不会影响j的值。为了能保持左值的信息以及const属性，可以将模板改进为：
+```C++
+template <typename F, typename T1, typename T2>
+void flip2(F f, T1&& t1, T2 &&t2) {
+    f(t2, t1);
+}
+```
+改成右值模板参数，则如果传递右值，则保持右值的属性。如果传递左值，则会保持引用。即如果一个函数参数是指向模板类型参数的右值引用，则它对应的实参的const属性和左值/右值属性都会得到保持。
+
+但是依旧存在问题，如果调用的函数改为：
+```C++
+void g(int &&i, int &j) {
+    //...
+}
+```
+则给i传递一个左值，是无法用左值来实例化int&&的。即，int&& t2,t2是一个右值引用，但它本身是一个左值，所以不能将t2绑定到i上。为了解决该问题，可以调用标准库utility里中的forward函数，forward\<T\>返回类型为T&&，如下：
+```C++
+template <typename F, typename T1, typename T2>
+void flip(F f, T1 &&t1, T2 &&t2) {
+    f(std::forward<T2>(t2), std::forward<T1>(t1));
+}
+```
+### 重载与模板
+模板重载的一个例子：
+```C++
+template <typename T> string debug_rep(const T &t) {
+    ostringstream ret;
+    ret << t;
+    return ret.str();
+}
+
+template <typename T> string debug_rep(T* p) {
+    ostringstream ret;
+    ret << "pointer: " << p;
+    if (p)
+        ret << " " << debug_rep(*p);
+    else
+        ret << " null pointer";
+    return ret.str();
+}
+
+string s("hi");
+debug_rep(s);
+debug_rep(&s);
+```
+debug_rep(s)中，只能匹配到第一个版本，因为第二个版本需要传递地址，因此匹配到第一个。
+
+debug_rep(&s)中，两个函数都生成可行的实例。第一版本生成debug_rep(const string* &),第二个版本生成debug_rep(string*)。由于第二个版本是精准匹配，选用第二个版本。
+
