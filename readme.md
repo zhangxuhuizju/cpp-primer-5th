@@ -3165,7 +3165,7 @@ class Bulk_quote : public Quote {...};
 
 + 派生类到基类的类型转换只针对与引用或者指针的类型，其本类型是不支持的，即对象之间不存在类型转换
 
-+ 用一个派生类的对象给一个基类对象初始化或者赋值时，只有其基类的部分被拷贝、移动或者赋值，它的派生类部分将会被忽略掉
++ 用一个派生类的对象给一个基类对象初始化或者赋值时，只��其基类的部分被拷贝、移动或者赋值，它的派生类部分将会被忽略掉
 
 ### 虚函数
 + 当使用引用或者指针调用一个虚成员函数时才会执行动态绑定，因为在程序运行时才知道到底调用了哪个版本的虚函数，所以所有虚函数都必须有定义。如果不是指针和引用，是不会有动态绑定的，编译期就确定了对应的版本
@@ -3326,3 +3326,340 @@ public:
 构造函数的using声明不会改变函数的访问级别。无论using声明在哪，基类的私有构造函数在派生类中还是私有构造函数，其余也是这个规则。此外，using声明不能指定explicit或者constexpr，只能默认继承基类的这些属性。
 
 基类的构造函数有默认实参时，实参不会被继承，而是让派生类获取多个继承的构造函数，其中每个构造函数分别省略一个有默认实参的形参。
+
+## chapter16 模板与泛型编程
+### 函数模板
+函数模板的写法如下：
+```C++
+template <typename T>
+int compare(const T &v1, const T &v2) {
+    if (v1 < v2)
+        return -1;
+    if (v2 < v2)
+        return 1;
+    return 0;
+}
+```
+在模板定义中，模板参数列表不能为空。对于该函数，调用的时候编译器会利用函数实参的类型推断出模板实参。
+
+模板类型参数的规范和用法(对于模板参数，class和typename用法等价)：
+```C++
+//表示返回类型和参数类型相同
+template <typename T> T foo(T* p){
+    T tem = *p;
+    //...
+    return tem;
+}
+
+//错误：U之前必须有class或者typename
+template <typename T, U> T calc(const T&, cosnt U&);
+```
+#### 非类型模板参数
+可以在模板中定义非类型模板参数，表示一个值而非类型。需要用特定的类型名来指定非类型参数。例如：
+```C++
+template<unsigned N, unsigned M>
+int compare(const char (&p1)[N], const char (&p2)[M]) {
+    return strcmp(p1, p2);
+}
+```
+调用`compare("hi", "mom")`实际编译器会实例化`int compare(const char (&p1)[3], const char (&p2)[4])`.
+
+非类型模板参数的模板实参必须是常量表达式。
+#### inline和constexpr的函数模板
+模板也可以声明为inline和constexpr的，将说明符放在模板参数列表之后，返回类型之前即可。例：
+```C++
+//正确
+template<typename T> inline T min(const T&, const T&);
+//错误，inline说明符的位置不正确
+inline template <typename T> T min(const T&, const T&);
+```
+#### 编写类型无关的代码
+模板程序应该尽量减少对实参类型的要求，例如之前的compare函数，考虑其类型无关和可移植性，可以改进为以下形式：
+```C++
+template <typename T> int compare(const T &v1, const T &v2) {
+    if (less<T>()(v1, v2)) return -1;
+    if (lsee<T>()(v2, v1)) return 1;
+    return 0;
+}
+```
+这样解决了原始版本传递两个无关指针会遇到的问题。
+
+#### 模板编译
+为了生成模板的实例化版本，编译器需要掌握函数模板或类模板成员函数的定义。因此，模板的的头文件既包括声明又包括定义。
+
+调用template时，编译器会使用实参的类型来确定绑定到模版参数T上的类型，之后编译器利用推断出的模版参数来实例化一个特定版本的函数，这个过程被称之为实例化。
+
+类模版的成员函数实例化：只有在程序使用它时才会被实例化，即使其类模版已经被实例化。
+
+### 类模板
+举一个Blob的模板例子，如下：
+```C++
+template <typename T> class Blob {
+public:
+    using size_type = std::vector<T>::size_type;
+    //构造函数
+    Blob();
+    Blob(std::initializer_list<T> il);
+    //blob中元素数目
+    size_type size() const{return data->size();}
+    bool empty() const{return data->empty();}
+    void push_back(const T& t) {data->push_back(t);}
+    void push_back(T&& t){data->push_back(std::move(t));}
+    void pop_back();
+    //元素访问
+    T& back();
+    T& operator[](size_type i);
+private:
+    std::shared_ptr<std::vector<T>> data;
+};
+```
+使用类模板的时候，需要显式地给定模板实参列表，类模板的每个实例都形成一个独立的类。对于模板类中的成员，在模板类外进行定义的写法为：
+```C++
+template<typename T>
+return-type ClassName<T>::member-name(parm-list)
+```
+默认情况下，对于一个实例化的类模板，类成员只有在使用的时候才会实例化。
+
+在一个类模板的作用域内，可以直接使用模板名而不必指定模板实参，例如：
+```C++
+template<typename T>
+BlobPtr<T> BlobPtr<T>::operator(int) {
+    //此处不需要写成BlobPtr<T>，因为已经在类的作用域内了
+    BlobPtr ret = *this;
+    ++*this;
+    return ret;
+}
+```
+
+#### 类模板和友元
+类和友元各自是否是模板相互无关。
+
+#### 一对一的友元关系
+```C++
+//为了引用模板的特定实例，需要先声明模板自身
+template<typename> class BlobPtr;
+template<typename> class Blob;
+template<typename T>
+    bool operator==(const Blob<T>&, const Blob<T>&);
+
+template<typename T> class Blob {
+    friend class BlobPtr<T>;
+    friend bool operator==<T>
+            (const Blob<T>&, const Blob<T>&);
+};
+```
+上例中，友元的声明用Blob的模板形参作为他们自己的模板实参，则友好关系被限定在同类型的Blob和BlobPtr相等运算符之间。
+
+#### 通用和特性的模板友好关系
+```C++
+//前置声明，将模板的一个特定实例声明为友元时要用
+template <typename T> class Pal;
+
+class C {//C是普通的非模板类
+    friend class Pal<C>;    //用C实例化的Pal是C的一个友元
+    //Pal2的所有实例都是C的友元;该情况不需要前置声明
+    template <typename T> friend class Pal2;
+};
+
+template <typename T> class C2 {
+    friend class Pal<T>;    //C2的每个实例都将相同实例化的Pal声明为友元
+    friend class Pal3;      //Pal3是个非模板类
+    //Pal2的所有实例都是C2的每个实例的友元，不需要前置声明
+    template <typename X> friend class Pal2; 
+};
+```
+#### 模板自己的类型参数成为友元
+例如：
+```C++
+template <typename Type> class Bar {
+    friend Bar;
+    //...
+};
+```
+此处将实例化Bar的类型声明为了友元。例如`Sales_data`为`Bar<Sales_data>`的友元。
+
+#### 模板类型别名
+```C++
+template <typename T> using twin = pair<T, T>;
+twin<string> authors;   //authors is a pair<string, string>
+twin<double> area;      //area is a pair<double, double>
+
+template <typename T> using partNo = pair<T, unsigned>;
+partNo<string> books;   //books is a pair<string, unsigned>
+partNo<Student> kids;   //kids is a pair<Student, unsigned>
+```
+#### 类模板的static成员
+类模板可以声明static成员，但是每个模板的不同实例都有自己的static成员实例。由于每个实例都有一个独特的static对象，因此static数据成员也需要定义成模板。访问static实例的时候，需要引用一个特定的实例。例如：
+```C++
+template <typename T> class Foo {
+public:
+    static std::size_t count() {return ctr;}
+private:
+    static std::size_t ctr;
+};
+
+template <typename T> size_t Foo<T>::ctr = 0;
+
+Foo<int> fi;                    //实例化Foo<int>类和static数据成员
+auto ct = Foo<int>::count();    //实例化Foo<int>::count
+ct = fi.count();                //使用Foo<int>::count
+ct = Foo::count();              //错误！！！不知道使用哪个模板实例的count！！！
+```
+### 模板参数
+#### 模板参数与作用域
+模板参数名的可用范围是其声明之后，到模板声明或定义结束之前，其中会隐藏外层作用域声明的相同名字，例如：
+```C++
+typedef double A;
+template <typename A, typename B> void f(A a, B b) {
+    A tmp = a;      //tmp是模板参数A的类型
+    double B;       //错误！不能重声明B！
+}
+```
+#### 使用类的类型成员
+一般作用域运算符(::)可以来访问static成员和类型成员(定义在类内的某种参数类型)。默认情况下，
+C++假定通过作用域运算符访问的名字是static成员。如果要访问类型成员，则需要typename关键字。例如：
+```C++
+template <typename T>
+typename T::value_type top(const T& c) {
+    if (!c.empty())
+        return c.back();
+    else 
+        return typename T::value_type();
+}
+```
+当通知编译器一个名字表示类型时，关键字必须用typename，不能用class
+
+#### 默认模板实参
+用法举例：
+```C++
+//compare有一个默认模板实参less<T>和一个默认函数实参F()
+template <typename T, typename F = less<T>>
+int compare(const T &v1, const T &v2, F f = F()) {
+    if (f(v1, v2))
+        return -1;
+    if(f(v2, v1))
+        return 1;
+    return 0;
+}
+bool i = compare(0, 42);    //使用less，i为-1
+bool j = compare(item1, item2, compareIsbn);    //使用compareIsbn
+```
+### 成员模板
+一个类无论是类模版还是普通类，都可以将其成员函数定义为模版，称之为成员模版，但是成员模版不能是虚函数。
+#### 类莫本的成员模板
+举例如下：
+```C++
+template <typename T> class Blob {
+    template <typename It> Blob(It b, It e);
+    //...
+};
+
+template <typename T>
+template <typename It> 
+Blob::Blob(It b, It e):
+    data(std::make_shared<std::vector<T>>(b, e)){};
+```
+例子中，定义了一个类模板的成员，其有一个模板类型参数，名为T。而成员自身是一个函数模板，有一个名为It的类型参数
+
+### 控制实例化
+对于模版使用时才会被实例化，会产生一个问题：相同的实例可能会出现在多个对象文件中，这时候每个文件都会有一份实例化的副本，这无疑造成了很大的额外开销，所以在C++11新标准下，我们可以使用显示实例化以避免这样的开销，所有的模版参数会被替换为模版实参。
+例如：
+```C++
+//in Application.cc
+extern template class Blob<string>;
+extern template int compare(const int&, const int&);
+Blob<string> sa;    //实例化出现在其他位置
+//Blob<int>需要在本文件实例化
+Blob<int> a1 = {0,1,2,3};
+Blob<int> a2(a1);   //拷贝构造函数在本文件实例化
+int i = compare(a1[0], a2[0]);  //实例化出现在其他位置
+```
+假设templateBuild.o中含有Blob<string>和int compare的实例化，那么在编译时，需要将两个.o文件链接到一起。
+
+一个类模版的实例化定义会实例化该模版的所有成员，包括内联函数成员，因为我们也不知道程序会使用那些成员函数，所以我们必须将其全部实例化，这就要求在实例化定义中，所用类型必须能作用于模版的所有成员函数。
+
+模板实例化的总结：
++ 在我们使用类模板时，只有当代码中使用了类模板的一个实例的名字，而且上下文环境要求必须存在类的定义时，这个类模板才被实例化。
+
++ 声明一个类模板的指针和引用，不会引起类模板的实例化，因为没有必要知道该类的定义。
+
++ 定义一个类类型的对象时需要该类的定义，因此类模板会被实例化。
+
++ 在使用sizeof()时，它是计算对象的大小，编译器必须根据类型将其实例化出来，所以类模板被实例化.
+
++ new表达式要求类模板被实例化。
+
++ 引用类模板的成员会导致类模板被编译器实例化。
+
++ 需要注意的是，类模板的成员函数本身也是一个模板。标准C++要求这样的成员函数只有在被调用或者取地址的时候，才被实例化。用来实例化成员函数的类型，就是其成员函数要调用的那个类对象的类型。但是类模板的实例化定义会实例化该模板的所有成员。
+
+#### 类型转换与模板类型参数
+类型转化中，能在调用中应用于函数模板的包括：
++ 忽略顶层const
+
++ const转换，将一个非const对象的引用或指针传递给一个非const对象
+
++ 数组或者函数指针的转换
+
+此外，算数转换、派生类向基类转换以及用户定义的转换都不能用于函数模板。
+
+### 函数模板显式实参
+例如，定义一个以下的模板，编译器无法推断T1的类型，必须显式给定：
+```C++
+template <typename T1, typename T2, typename T3>
+T1 sum(T2, T3);
+//显式指定T1,T2和T3从类型推断而来，最后类型为long long sum(int, int)
+auto val = sum<long long>(1, 10);
+```
+显示模板实参按照从左到右的顺序与对应的模板实参匹配。只有最尾参数的显式模板实参可以被忽略，忽略的前提是他们可以从函数参数推断出。
+
+### 尾置返回类型与类型转换
+挡不指定返回结果的确切类型，但可以从参数列表中的参数中推断出的时候，可以用尾置返回类型。例如：
+```C++
+template <typename It>
+auto &fcn(It beg, It end) -> decltype(*beg){
+    //...
+    return *beg;
+}
+```
+上述例子中，\*beg解引用返回的是一个左值，因此decltype推断出的类型为\*beg类型的一个引用。当需要返回类型，而非引用时，可以使用类型转换模板，定义在头文件type_traits中。
+
+||标准类型转换模板||
+-|-|-
+对Mod\<T\>,其中Mod为 | 若T为 | 则Mod\<T\>::type为
+remove_reference | X&& or X&&<br>otherwise | X <br> T
+add_const | X&、const X or function <br> otherwise | T <br> const T
+add_lvalue_reference | X& <br> X&& <br> otherwise | T <br> X& <br> T&
+add_rvalue_reference | X& or X&& <br> otherwise | T <br> T&&
+remove_pointer | X*<br> otherwise | X <br> T
+add_pointer | X& or X&& <br> otherwise | X* <br> T*
+make_signed | unsigned X <br> otherwise | X <br> T
+make_unsigned | signed type<br>otherwise | unsigned X <br> T
+remove_extent | X[n] <br> otherwise | X <br> T
+remove_all_extents | X[n1][n2]...<br>otherwise | X <br> T
+
+使用举例：
+```C++
+//此时的返回类型是*beg的类型而不是*beg类型对象的一个引用
+template <typename It>
+auto fcn(It beg, It end) ->
+    typename remove_reference<decltype(*beg)>::type {
+    //...
+    return *beg;
+}
+```
+### 函数指针和实参推断
+使用举例：
+```C++
+template <typename T> int compare(const T&, const T&);
+//pf指向int compare(const int&, const int&)
+int (*pf)(const int&, const int&) = compare;
+
+void func(int(*)(const string&, const string&));
+void func(int(*)(const int&, const int&));
+func(compare);  //错误！编译器无法得知使用哪个compare实例
+func(compare<int>); //正确，显式指出编译器应该传递的compare版本
+```
+当参数是一个函数模板实例的地址时，程序上下文必须满足：对每个模板参数，能唯一确定其值或类型。
+
+### 模板实参推断和引用
