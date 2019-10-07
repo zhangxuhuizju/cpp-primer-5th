@@ -3845,4 +3845,5 @@ template<>
 int compare(const char* const &p1, const char* const &p2) {
     //...
 }
-...
+```
+特例化的本质是实例化一个模板，而不是重载它。因此特例化不会影响函数匹配。
