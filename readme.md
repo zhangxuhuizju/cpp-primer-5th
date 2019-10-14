@@ -3860,3 +3860,92 @@ int compare(const char* const &p1, const char* const &p2) {
 4：C语言中可以使用rand产生随机数，但是C++提供了更多产生随机数的引擎和方法
 
 5：IO库的格式控制、未格式化IO和随机访问
+
+## chapter18 用于大型程序的工具
+### 异常处理
+异常抛出一个指针，则要求指针所指的对象在任何处理的地方都要存在。抛出一条表达式时，表达式的静态编译时类型决定了异常对象的类型。
+
+catch子句中的异常声明看起来像是函数的形参列表，但是这个类型必须是完全类型，不能是右值引用。若其参数类型是非引用，则会传入一份异常对象的副本，若是引用，则是该对象的别名。
+
+若catch的参数是基类类型，我们可以使用派生类类型的异常声明对其进行初始化，如若不是引用方式，则会将派生类的部分切除。
+
+搜索匹配的catch语句过程中，找到的未必是最佳匹配，是第一个可以匹配的catch语句，所以越是专门、越是特例化的catch语句应该放在前面，因为catch语句是按照其出现顺序逐一匹配的。
+
+catch语句参数类型允许的类型转换：非const到const、派生类到基类、数组元素到指针、函数名到指针这四种类型转换被允许。
+
+当一个单独的catch语句不能完整地处理异常，则当前catch可以重新抛出异常，用`throw;`这样不含表达式的语句即可。该语句只能出现在catch语句或catch语句直接调用的函数内。
+
+catch语句会改变其参数的内容，如果改变参数的内容后catch语句重新抛出异常，则只有是引用类型时，对参数的改变才会保留并继续传播，例如：
+```C++
+catch(my_error &eObj) {
+    eObj.status = errCodes::severeErr;  //修改异常对象
+    throw;                              //异常对象的status成员是severeErr
+} catch(other_error eObj) {
+    eObj.status = errCodes::baderr;     //只修改了异常对象的局部副本
+    throw;                              //异常对象的status成员并没有改变
+}
+```
+如果想要代码能够捕获所有的异常，可以用`catch(...)`语句。例如：
+```C++
+void manip(){
+    try {
+        //raise an error
+    } catch(...) {
+        //handle some error
+        throw;
+    }
+}
+```
+#### 函数try语句块与构造函数
+由于构造函数在其进入函数体之前进行初始化（执行初始化列表），所以此时的try语句块还未生效，所以构造函数体内的catch语句无法处理构造函数初始值列表抛出的异常，这是就需要构造函数try语句块的形式，即将初始值列表置于try语句块中。示例如下：
+```cpp
+template <Typename T>
+Blob<T>::Blob(std::initializer_list<T> il) try:
+    data(std::make_shared<std::vector<T>>(il)) {
+
+    }catch(const std::bad_alloc &e) { handle_out_of_memory(e); }
+```
+#### noexcept异常说明
+使用noexcept关键字，指定某个函数不会抛出异常，它不属于函数类型的一部分。noexcept的一些注意事项：
++ noexcept需要出现在函数的所有声明和定义语句中，并且在尾置返回类型之前
++ noexcept说明符需要在const和引用限定符号之后，在final、override或者=0之前
+
+编译器不会在编译时检查noexcept说明，如果noexcept后跟了throw，也可以顺利通过，但是不会进行处理，直接调用terminate。因此noexcept也可以用在不知道如何处理异常的情况中。
+
+两条等价的声明（老版本的写法）：
+```cpp
+void recoup(int) noexcept;
+void recoup(int) throw();   //表示recoup不会抛出异常
+```
+noexcept也可以接受参数，该参数必须能转化为bool类型，如下：
+```cpp
+void recoup(int) noexcept(true);        //recoup不会抛出异常
+void alloc(int) noexcept(false);        //alloc可能抛出异常
+```
+noexcept还可以作为运算符来使用，当其不跟在函数参数列表之后时，返回值是一个bool的常量表达式，为true时，表明传入参数会抛出异常。
+
+#### 异常说明与指针、虚函数和拷贝控制
+函数指针如果做了noexcept声明，则只能指向同样声明了noexcept的函数。反之，如果函数指针没有做此声明，则可以指向任意函数，例如：
+```cpp
+void (*pf1)(int) noexcept = recoup;
+void (*pf2)(int) = recoup;
+
+pf1 = alloc;        //错误，alloc可能抛出异常，但pf1说明它不会抛出异常
+pf2 = alloc;        //正确，pf2和alloc都可能抛出异常
+```
+如果虚函数承诺不会抛出异常，则后续派生的虚函数也必须有一致承诺。反之，如果基类虚函数允许抛出异常，则派生类对应函数可以抛出也可以不抛出异常，例如：
+```cpp
+class Base {
+public:
+    virtual double f1(double) noexcept;
+    virtual int f2() noexcept(false);
+    virtual void f3();
+};
+class Derived : public Base {
+public:
+    double f1(double);      //error! Base::f1承诺不会抛出异常
+    int f2() noexcept(false);
+    void f3() noexcept;
+};
+```
+若对所有成员和基类的操作都是noexcept的，则编译器合成版本的成员也是noexcept的
