@@ -3949,3 +3949,22 @@ public:
 };
 ```
 若对所有成员和基类的操作都是noexcept的，则编译器合成版本的成员也是noexcept的
+
+自己也可以构建异常类，例如：
+```cpp
+class out_of_stock: public std::runtime_error {
+public:
+    explicit out_of_stock(const std::string &s):
+                            std::runtime_error(s){}
+};
+
+class isbn_mismatch: public std::logic_error {
+public:
+    explicit isbn_mismatch(const std::string &s):
+                            std::logic_error(s) {}
+    isbn_mismatch(const std::string &s,
+        const std::string &lhs, const std::string &rhs):
+        std::logic_error(s), left(lhs), right(rhs) {}
+    const std::string left, right;
+};
+```
