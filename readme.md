@@ -3165,7 +3165,7 @@ class Bulk_quote : public Quote {...};
 
 + 派生类到基类的类型转换只针对与引用或者指针的类型，其本类型是不支持的，即对象之间不存在类型转换
 
-+ 用一个派生类的对象给一个基类对象初始化或者赋值时，只��其基类的部分被拷贝、移动或者赋值，它的派生类部分将会被忽略掉
++ 用一个派生类的对象给一个基类对象初始化或者赋值时，只���其基类的部分被拷贝、移动或者赋值，它的派生类部分将会被忽略掉
 
 ### 虚函数
 + 当使用引用或者指针调用一个虚成员函数时才会执行动态绑定，因为在程序运行时才知道到底调用了哪个版本的虚函数，所以所有虚函数都必须有定义。如果不是指针和引用，是不会有动态绑定的，编译期就确定了对应的版本
@@ -3968,3 +3968,61 @@ public:
     const std::string left, right;
 };
 ```
+### 命名空间
+namespace后加命名空间的名字，加上一对花括号就是一个完整的命名空间（注意花括号后无需加分号），只要能出现于全局作用域中的声明就能置于命名空间内，主要包括：类、变量（初始化操作）、函数声明和定义、模版、其他命名空间。例如：
+```cpp
+namespace cplusplus_primer {
+    class Sales_data {//...};
+    Sales_data operator+(const Sales_data&, const Sales_data&);
+    class Query{//...};
+    class Query_base{//...};
+}//此处无需分号
+```
+命名空间不能定义在函数和类的内部。命名空间本身是可以不连续的。
+
+命名空间的成员可以定义在命名空间外部，但是这样的定义必须出现在所属命名空间的外层空间中。
+
+命名空间的模板特例化使用举例：
+```cpp
+namespace std {
+    template <> struct hash<Sales_data>;
+}
+
+template <> struct std:hash<Sales_data> {
+    size_t opeartor()(const Sales_data& s) const {
+        return hash<string>()(s.bookNo)^
+               hash<unsigned>()(s.units_sold) ^
+               hash<double>()(s.revenue);
+    }
+};
+```
+定义在全局作用域中的名字，用`::member_name`来表示。
+
+#### 内联命名空间
+C++11有一套新的嵌套命名空间标准，为**内联命名空间**。内联命名空间的名字可以直接被外层命名空间使用，例如：
+```cpp
+inline namespace FifthEd {
+    //表示第五版代码的命名空间
+}
+namespace FifthEd {     //隐式内联,inline只要第一次的时候有即可，后面可省略
+    class Query_base{//...}
+    //...
+}
+
+namespace FourthEd {
+    class Item_base {//...}
+    class Query_base {//...}
+}
+
+//命名空间cplusplus_primer将同时用到之前使用的两个命名空间
+namespace cplusplus_primer {
+    #include "FifthEd.h"
+    #include "FourthEd.h"
+}
+```
+上例中，如果要访问FifthEd的代码，用`cpluplus_primer::`即可。否则，需要`cplusplus_primer::FourthEd::`这样的形式
+
+#### 未命名的命名空间
+namespace之后不加名字，为未命名的命名空间，其中的变量拥有静态的生命周期，程序结束时才被销毁，但是不可以跨文件进行定义，其中的成员可以直接使用。当然，未命名的命名空间也可以嵌套在其他命名空间中，此时可以通过外层的命名空间名加以访问。
+
+根据C++11标准，static定义静态变量的做法已取消，现在是定义一个全局的未命名的名字空间。
