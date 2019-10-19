@@ -4026,3 +4026,57 @@ namespace cplusplus_primer {
 namespace之后不加名字，为未命名的命名空间，其中的变量拥有静态的生命周期，程序结束时才被销毁，但是不可以跨文件进行定义，其中的成员可以直接使用。当然，未命名的命名空间也可以嵌套在其他命名空间中，此时可以通过外层的命名空间名加以访问。
 
 根据C++11标准，static定义静态变量的做法已取消，现在是定义一个全局的未命名的名字空间。
+
+### 使用命名空间成员
+`namespace_name::member_name`这样使用命名空间成员显得很繁琐，可以有以下几种方式来简化。
+
+#### 命名空间别名
+如，`namespace primer = cplusplus_primer`,后面就可以用`primer::`来表示原本`cplusplus_primer::`的空间。
+
+一个命名空间可以有好几个同义词或者别名。
+
+#### using声明
+一次只能引入命名空间的一个成员，其有效范围从using声明开始，到using声明所在的作用域结束为止。例如`using namespace_name::member_name`,之后可以直接用`member_name`
+
+#### using指示
+using指示：与using声明类似，也可以使用其简写模式，using namespace XX，将XX命名空间的所有成员变成可见，作用域和using声明一致。using指示一般被看作是出现在最近的外层作用域中，若有同名冲突成员，应加限定符予以区分。
+
+### 类、命名空间与作用域
+用例子来说明相应的关系：
+```cpp
+namespace A {
+    int i;
+    namespace B {
+        int i;          //B中隐藏了A::i
+        int j;
+        int f1() {
+            int j;      //j是f1的局部变量，隐藏了A::B::j
+            return i;   //return B::i
+        }
+    }//命名空间B结束，之后B定义的名字不可见
+    int f2() {
+        return j;       //错误，j未定义
+    }
+    int j = i;          //用A::i进行初始化
+}
+```
+对于命名空间中的类，常规的查找规则仍然适用：成员函数用某个名字时，先在成员中查找，然后在类中查找，然后在外层作用域中查找，例如：
+```cpp
+namespace A {
+    int i;
+    int k;
+    class C1 {
+    public:
+        C1():i(0), j(0){}       //正确，初始化C1::i,C1::j
+        int f1() {return k;}    //return A::k
+        int f2() {return h;}    //error! h is undefined
+        int f3();
+    private:
+        int i;                  //C1中隐藏了A::i
+        int j;
+    };
+    int h = i;                  //用A::i初始化
+}
+int A::C1::f3() {return h;}     //正确，返回A::h
+```
+给函数传递一个类类型的对象时，除了在常规的作用域中查找，还查找实参所属类型的命名空间，这对于传递类的引用和指针同样有效（非常重要）
