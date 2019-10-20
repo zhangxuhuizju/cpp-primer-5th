@@ -4080,3 +4080,105 @@ namespace A {
 int A::C1::f3() {return h;}     //正确，返回A::h
 ```
 给函数传递一个类类型的对象时，除了在常规的作用域中查找，还查找实参所属类型的命名空间，这对于传递类的引用和指针同样有效（非常重要）
+
+#### 友元声明和实参相关的查找
+类声明友元时，友元声明并没有使得友元本身可见。然而，一个另外的未声明的类或函数如果第一次出现在友元声明中，则认为它是最近的外层命名空间成员。例如：
+```cpp
+namespace A {
+    class C {
+        //两个友元，友元声明外无其他声明
+        //这些函数隐式地成为命名空间A的成员
+        friend void f2();
+        friend void f(const C&);   
+    }
+}
+
+int main() {
+    A::C cobj;
+    f(cobj);        //会查找cobj所属的命名空间，从而找到A::f
+    f2();           //error! f2 is undefined!
+}
+```
+### 重载与命名空间
+#### 与实参相关的查找与重载
+对于接受类类型实参的函数，其名字查找将在实参类所属命名空间进行，这对我们如何确定候选函数集造成了影响。例如：
+```cpp
+namespace NS {
+    class Quote {//...};
+    void display(const Quote&) {//...}
+}
+//Bulk_item的基类声明在命名空间NS中
+class Bulk_item : public NS::Quote {//...};
+int main() {
+    Bulk_item book;
+    display(book);          //为NS::display
+    return 0;
+}
+```
+#### 重载与using声明
+using声明语句声明的是一个名字，而非一个特定的函数，所以 `using NS::print(int)`将是错误的，需要写成`using NS::print`。该语句会将print函数的所有版本引入到该空间，若本空间已有同名函数，则using声明会引发错误。
+
+#### 重载与using指示
+using指示将命名空间的成员提升到外层作用域中，若两空间有同名函数，则会被添加到重载集合中，且引入一个与已有函数形参列表完全相同的函数不会造成错误，只要我们指明使用哪个版本的函数即可。
+
+一个using声明引入的函数将重载该声明语句所属作用域中已有的同名函数，如果using声明出现在局部作用域中，则引入的名字会隐藏外层作用域中的相关声明
+
+例子如下：
+```cpp
+namespace libs_R_us {
+    extern void print(int);
+    extern void print(double);
+}
+//普通声明
+void print(const std::string &);
+//这个using指示把名字添加到print调用的候选函数集
+using namespace libs_R_us;
+//print调用的候选函数包括：
+//libs_R_us的print(int), print(double)
+//显式声明的print(const std::string &)
+void fooBar(int ival) {
+    print("Value: ");           //全局的print
+    print(ival);                //libs_R_us的print(int)
+}
+```
+### 多继承与虚继承
+#### 多继承
+多继承的写法为`class A: public class B, public  class C {//...};`。每个基类都有一个可选的访问说明符。如果省略，按照class为private继承，struct为public继承。
+
+构造一个派生类的对象将同时构造并初始化其所有基类子对象。基类的构造顺序与其派生列表的出现顺序一致，例如：
+```cpp
+//显式初始化所有基类
+Panda::Panda(std::string name, bool onExhibit)
+      :Bear(name, onExhibit, "Panda"),
+       Endangered(Endangered::critical) {}
+//隐式地使用Bear的默认构造函数初始化Bear子对象
+Panda::Panda()
+      :Endangered(Endangered::critical) {}
+```
+C++11新标准，派生类可以从其基类中继承构造函数，但是若从所个基类中继承了相同的构造函数（形参列表完全相同的情况），就会发生错误，此时该派生类应该为它自己定义一个形参列表相同的构造函数。例如：
+```cpp
+struct Base1 {
+    Base1() = default;
+    Base1(const std::string&);
+    Base1(std::shared_ptr<int>);
+};
+struct Base2 {
+    Base2() = default;
+    Base2(const std::string&);
+    Base2(int);
+};
+//错误！D1试图从两个基类中都继承D1::D1(const string&)
+struct D1: public Base1, public Base2 {
+    using Base1::Base1;     //从Base1继承构造函数
+    using Base2::Base2;     //从Base2继承构造函数
+};
+
+//正确写法
+struct D2: public Base1, public Base2 {
+    using Base1::Base1;     //从Base1继承构造函数
+    using Base2::Base2;     //从Base2继承构造函数
+    //D2必须自定义一个接受string的构造函数
+    D2(const string &s): Base1(s), Base2(s) {}
+    D2() = default;         //一旦D2定义了自己的构造函数，则必须有默认构造函数
+};
+```
