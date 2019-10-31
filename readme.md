@@ -4232,3 +4232,146 @@ class Panda : public Bear,
 + 构造Endangered部分
 + 最后构造Panda部分
 
+## Chapter19 特殊工具与技术
+### 控制内存分配
+new和delete运算符的实现细节：
++ new的操作过程：第一步、new表达式调用operator new(或者 operator new[])的标准库函数，该函数分配一块足够大的、原始的、未命名的内存空间以便存储特定类型的对象（或数组）。第二步、编译器运行相应的构造函数以构造这些对象，并为其传入初始值。第三步、对象分配了空间并构造完成，返回一个指向该对象的指针
+
++ delete的操作过程：第一步：对指针所指对象的数组指针所指数组执行相应的析构函数。第二步：编译器调用operator delete（或者operator delete[]）的标准库函数释放内存空间
+
+C++从C语言中继承了malloc和free函数，头文件为cstdlib，malloc接受一个表示待分配字节数的size_t，返回指向该内存空间的指针或者返回0表示分配失败。free()函数接受一个void *，它是malloc返回指针的副本，free将相关内存返回给系统，free(0)无意义。所以operator new可以用malloc来实现，例如：
+```cpp
+#include <iostream>  
+#include <cstdlib>  
+  
+void *operator new(std::size_t n){  
+    std::cout << "new(size_t)"<<endl;  
+    if (void *mem = malloc(n))  
+        return mem;  
+    else  
+        throw std::bad_alloc();  
+}  
+void operator delete(void *mem) noexcept{  
+    std::cout << "delete(void*)<<endl";  
+    free(mem);  
+}  
+```
+operator new和operator delete和alloctor类的allocate和deallocate很像，都是负责分配和释放内存的函数，但是对于operator new分配的内存空间我们无法使用construct函数构造对象，我们应该使用new的定位new形式构造对象
+
+当只传入一个指针类型的实参时，定位new表达式构造对象但是不分配内存，这个指针没有要求，甚至可能是一个不是一个指向动态内存的指针
+
+调用析构函数会销毁对象，但是不会释放内存
+
+### 运行时类型识别
+运行时类型识别（RTTI），typeid：用于返回表达式的类型，dynamic_cast：用于将基类的指针或引用转换成派生类的指针或引用，当我们将这两个运算符用于某种类型的引用或指针时，并且该类型含有虚函数，运算符将会使用指针或引用所绑定对象的动态类型。
+
+对于`dynamic_cast`运算符，使用形式有以下三种：
++ `dynamic_cast<type*> (e)`，此时e必须是个有效指针，若失败，返回0
++ `dynamic_cast<type&> (e)`，此时e必须是一个左值，若失败，抛出bad_cast异常
++ `dynamic_cast<type&&> (e)`，此时e不能是一个左值
+
+例如：
+```cpp
+if (Derived *dp = dynamic_cast<Derived*>(bp)) {
+    //使用dp指向的Derived对象
+} else {
+    //使用bp指向的Base对象
+}
+
+try {
+    const Derived &d = dynamic_cast<const Derived&>(b);
+    //使用b引用的Derived对象
+} catch(bad_cast) {
+    //处理类型转换失败的情况
+}
+```
+typeid(e)，其中e可以是任何类型或表达式的名字，若为表达式，返回的是引用所引对象的类型，若作用域为数组名，返回的是数组类型，若作用于指针，返回的是该指针的静态编译的类型。使用举例：
+```cpp
+Dervied *dp = new Derived;
+Base *bp = dp;                  //两个指针都指向Dervied对象
+
+if (typeid(*bp) == typeid(*dp)) {
+    //...
+}
+if (typeid(*bp) == typeid(Derived)) {
+    //...
+}
+
+//比较Base*和Derived，由于指针本身不是一个类类型对象，所以永远不会进入if条件
+if (typeid(bp) == typeid(Derived)) {
+    //never come here!
+}
+```
+当typeid作用于指针时(而非指针所指的对象)，返回的结果是该指针的静态编译时类型。注意typeid只有在所指对象有虚函数的时候，会对表达式求值，否则返回静态类型。如果没有写虚函数，一种策略是把析构函数写成虚函数！！！
+
+一个使用RTTI的例子如下：
+```cpp
+class Base {
+    friend bool operator==(const Base&, const Base&);
+public:
+    //Base的接口成员
+protected:
+    virtual bool equal(const Base&) const;
+    //Base的数据成员和其他用于实现的成员
+};
+
+class Derived: public Base {
+public:
+    //Derived的其他接口成员
+protected:
+    bool equal(const Base&) const;
+    //Derived的数据成员和其他用于实现的成员
+};
+
+bool operator==(const Base &lhs, const Base &rhs) {
+    //如果typeid不同，返回false;否则虚调用equal
+    return typeid(lhs) == typeid(rhs) && lhs.equal(rhs);
+}
+
+bool Derived::equal(const Base &rhs) const {
+    auto r = dynamic_cast<const Derived&>(rhs);
+    //执行比较两个Derived对象的操作并返回结果
+}
+
+bool Base::equal(const Base &rhs) const {
+    //执行比较Base对象的操作
+}
+```
+### 枚举类型
+C++的枚举包含限定作用域和不限定作用域的枚举类型。使用举例：
+```cpp
+enum color {red, yellow, green};       //不限定作用域的枚举类型
+//未命名的，不限定作用域的枚举类型
+enum {floatPrec = 6, doublePrec = 10, double_doublePrec = 10};
+//限定作用域的枚举类型
+enum class open_modes {input, output, append};
+```
+在限定作用域的枚举类型中，遵循常规的作用域准则，在枚举类型作用域外不可访问，不限定作用域的枚举类型，枚举成员的作用域和枚举类型本身的作用域相同（一般来说两个不限定作用域的枚举类型的成员不可以相同，因为其作用域是相同的，会重复定义）。
+
+默认情况下，枚举成员的枚举值从0开始，依次加1，但我们也可以为枚举成员指定初值。
+
+枚举成员是const的，所以赋值时必须使用常量表达式。
+
+使用举例：
+```cpp
+enum color {red, yellow, green};            //不限定作用域的枚举类型
+enum stoplight {red, yellow, green};        //错误：重复定义了枚举成员
+enum class peppers {red, yellow. green};    //正确：枚举成员被隐藏了
+color eyes = green;                         //正确
+peppers p = green;        //错误：peppers的枚举成员不在有效的作用域中
+                          //color::green在有效的作用域中，但是类型错误
+color hair = color::red;                    //正确：允许显式的访问枚举成员
+peppers p2 = peppers::red;                  //正确：使用peppers的red
+
+int i = color::red;     //正确：不限定作用域的枚举类型的枚举成员隐式地转化成int
+int j = peppers::red;   //错误：限定作用域的枚举类型不会进行隐式转化
+```
+要想初始化一个enum对象或者为enum赋值，必须使用该类型的一个枚举成员或者该类型的另一个对象，不限定作用域的枚举类型的对象或其枚举成员会自动转换为整形。
+
+C++11新标准，可以在enum之后加上冒号再加上我们想在enum中使用的类型：`enum：unsigned int{}`，默认情况下为int。
+
+枚举类型可以先声明不定义。其中不限定作用域的enum未指定成员的默认大小，因此每个声明必须指定成员的大小。对于限定作用域的enum来说，可以不指定成员大小，这个值被隐式地定义成int。如：
+```cpp
+enum intValues : unsigned long long;    //不限定作用域的，必须指定成员类型
+enum class open_modes;                  //限定作用域的枚举类型可以使用默认成员类型int
+```
