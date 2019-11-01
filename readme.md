@@ -4375,3 +4375,90 @@ C++11新标准，可以在enum之后加上冒号再加上我们想在enum中使�
 enum intValues : unsigned long long;    //不限定作用域的，必须指定成员类型
 enum class open_modes;                  //限定作用域的枚举类型可以使用默认成员类型int
 ```
+### 类成员指针
+成员指针是指可以指向类的非静态成员的指针，由于类的静态成员不属于任何对象，所以无需特殊的指向该成员的指针，成员指针的类型需要包括类的类型和成员的类型。
+
+利用Screen类来举例说明：
+```cpp
+class Screen {
+public:
+    typedef std::string::size_type pos;
+    char get_cursor() const { return contents[cursor]; }
+    char get() const;
+    char get(pos ht, pos wd);
+private:
+    std::string contents;
+    pos cursor;
+    pos height, width;
+}
+
+//pdata可以指向一个常量(非常量)Screen对象的string成员
+//该初始化过程中，指针并没有指向任何数据。
+//成员指针指定了成员而非改成员所属的对象
+const std::string Screen::*pdata;
+pdata = &Screen::contents;
+
+//使用数据成员指针
+Screen myScreen, *pScreen = &myScreen;
+auto s = myScreen.*pdata;
+s = pScreen->*pdata;
+
+//由于pdata指向的contents是私有的，因此其使用必须位于Screen类成员或友元内部
+//此时一般在类内写一个函数返回相应指针，如
+class Screen {
+public:
+    //data是一个静态成员，返回一个成员指针
+    static const std::string Screen::* data() {
+        return &Screen::contents;
+    }
+}
+
+//调用data函数的操作
+const string Screen::*pdata = Screen::data();
+auto s = myScreen.*pdata;
+
+//pmf是一个指针，指向Screen的某个常量成员函数
+auto pmf = &Screen::get_cursor;
+
+char (Screen::*pmf2)(Screen::pos, Screen::pos) const;
+pmf2 = &Screen::get;
+pmf2 = Screen::get;     //错误，成员函数和指针之间不存在自动转换规则
+
+//使用成员函数指针
+char c1 = (pScreen->*pmf)();
+char c2 = (myScreen.*pmf2)(0,0);
+```
+### 将成员函数用作可调用对象
+因为成员指针不是可调用对象，所以我们不能直接将一个指向成员函数的指针传递给算法。想要通过成员指针调用函数，必须使用->\*或者.\*运算符。
+
+有三种方式为成员函数生成可调用对象：
+#### 用function
+```cpp
+function <bool (const string&)> fcn = &string::empty;//empty()是一个接受string参数并返回bool值的函数
+find_if(vec.begin()，vec.end()，fcn);//正确
+```
+#### 用men_fn
+```cpp
+find_if(vec.begin()，vec.end()，mem_fn(&string::empty));//mem_fn会生成一个可调用对象
+```
+#### 用bind
+```cpp
+find_if(vec.begin()，vec.end()，bind(&string::empty,_1));//bind会生成一个可调用对象,第一个实参既可以是指针也可以是引用
+```
+其中，使用function的话，传入的参数必须是string的指针，而mem_fn和bind可以传入string的指针或引用。
+
+### 嵌套类
+嵌套类是一个独立的类，与外层类没什么关系，并且外层类对象与内层类对象是相互独立的，嵌套类对象中不包含任何外层类的成员。
+
+嵌套类的名字在外层类的作用域中是可见的，两者都没有对对方有特殊的访问权限。
+
+嵌套类在其外层类完成真正的定义之前，它都是一个不完全类型。
+
+### union
+union是一种特殊的类，可以包含多个数据成员，但是在任意时刻只能有一个数据成员可以有值，其他成员属于未定义的状态，分配给union的内存只要能存储它的最大数据成员即可
+
+union中不能含有引用类型的成员，由于union不可继承，因此不能含有虚函数。
+
+匿名的union，没有名字，其中的成员可以直接访问，匿名union不能包含受保护成员和私有成员，也不能包含成员函数
+
+通常将含有类类型成员的union内嵌在另一个类之中，将其定义为匿名union，将自身类类型成员的控制权转移给该类
